@@ -1,0 +1,26 @@
+# Dependencies
+**/node_modules/
+**/vendor/
+
+# Environment files
+**/.env
+**/.env.backup
+**/.env.production
+
+# Build outputs
+**/dist/
+**/build/
+
+# Logs and cache
+*.log
+.phpunit.result.cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

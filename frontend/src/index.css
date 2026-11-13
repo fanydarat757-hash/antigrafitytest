@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white antialiased;
+  }
+}
+
+@layer components {
+  /* Ultra-Modern Dark Glassmorphism Utilities (GPU-Optimized for 60+ FPS) */
+  .glass-panel {
+    @apply bg-slate-900/80 backdrop-blur-md border border-slate-700/60 shadow-xl shadow-black/40 text-slate-100;
+  }
+  .glass-panel-hover {
+    @apply bg-slate-900/80 backdrop-blur-md border border-slate-700/60 hover:border-emerald-500/50 shadow-xl shadow-black/40 transition-all duration-200 text-slate-100;
+  }
+  .glass-input {
+    @apply bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all;
+  }
+  .glass-button-primary {
+    @apply bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98];
+  }
+}
+
+/* Custom Scrollbar for Smooth UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.8);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.7);
+}
+
+/* Custom Print Styles for Reports */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-report, #printable-report * {
+    visibility: visible;
+  }
+  #printable-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
