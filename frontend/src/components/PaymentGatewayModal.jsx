@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   ShieldCheck, 
   Clock, 
   CheckCircle2, 
   Loader2, 
-  Zap, 
   Lock,
   Radio,
-  QrCode
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../api/axios';
 
@@ -19,7 +18,6 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
   const [paymentStatus, setPaymentStatus] = useState('PENDING'); // 'PENDING' | 'SUCCESS'
   const [verifying, setVerifying] = useState(false);
   const [orderInfo, setOrderInfo] = useState(null);
-  const [showDemoTrigger, setShowDemoTrigger] = useState(true);
 
   const nominal = Number(data.denda !== undefined ? data.denda : (data.nominal !== undefined ? data.nominal : 1000));
   const namaSiswa = data.peminjaman?.nama_anggota || data.nama_anggota || data.nama_siswa || 'Siswa Perpustakaan';
@@ -85,7 +83,7 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
 
       setPaymentStatus('SUCCESS');
 
-      // Panggil onSuccess setelah animasi berhasil
+      // Panggil callback onSuccess setelah transisi sukses
       setTimeout(() => {
         if (onSuccess) {
           onSuccess({
@@ -97,17 +95,18 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
             waktu_bayar: new Date().toISOString()
           });
         }
-      }, 1200);
+      }, 1500);
 
     } catch (err) {
       alert('Gagal memvalidasi transaksi: ' + (err.response?.data?.message || err.message));
+    } finally {
       setVerifying(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[94vh] flex flex-col overflow-hidden border border-slate-200 transition-all">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm sm:max-w-md w-full max-h-[94vh] flex flex-col overflow-hidden border border-slate-200 transition-all">
         
         {/* Header Gateway */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white p-4 sm:p-5 relative flex-shrink-0">
@@ -120,7 +119,7 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
 
           <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
             <ShieldCheck className="w-4 h-4" />
-            <span>QRIS Gateway Auto-Detection</span>
+            <span>QRIS Real-Time Gateway</span>
           </div>
           <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
             {data.judul_transaksi || 'Pembayaran Denda Perpustakaan'}
@@ -148,9 +147,9 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
         <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4">
           {paymentStatus === 'SUCCESS' ? (
             /* Tampilan Berhasil Lunas Otomatis */
-            <div className="py-8 text-center space-y-4 animate-in zoom-in-95 duration-300">
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-50 shadow-inner">
-                <CheckCircle2 className="w-12 h-12 stroke-[2.5]" />
+            <div className="py-6 text-center space-y-4 animate-in zoom-in-95 duration-300">
+              <div className="w-18 h-18 sm:w-20 sm:h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-50 shadow-inner">
+                <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 stroke-[2.5]" />
               </div>
               <div>
                 <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-black uppercase rounded-full mb-1 tracking-wider">
@@ -162,7 +161,7 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
                 </p>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left text-xs space-y-2 font-mono">
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-left text-xs space-y-2 font-mono">
                 <div className="flex justify-between">
                   <span className="text-slate-500">No. Transaksi:</span>
                   <span className="font-bold text-slate-800">{orderInfo?.order_id || kdRef}</span>
@@ -193,16 +192,20 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
               </button>
             </div>
           ) : (
-            /* Tampilan QRIS Bersih (Hanya QR Code & Status Live) */
-            <div className="space-y-4">
+            /* Tampilan QRIS Bersih & Tajam (High Resolution Pure Barcode) */
+            <div className="space-y-3.5">
               
-              {/* Card QRIS Bersih */}
-              <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-4 text-center">
+              {/* Card QRIS Bersih (Dapat diklik untuk memeriksa / trigger verifikasi) */}
+              <div 
+                onClick={executeSuccessPayment}
+                title="Klik untuk cek / verifikasi pembayaran"
+                className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-4 text-center cursor-pointer hover:border-emerald-400 transition-all group"
+              >
                 {/* Header Banner QRIS Resmi */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                   <div className="flex items-center space-x-1.5">
                     <span className="px-2 py-0.5 rounded bg-rose-600 text-white font-black text-[10px]">QRIS</span>
-                    <span className="text-xs font-bold text-slate-800">Pembayaran Digital</span>
+                    <span className="text-xs font-bold text-slate-800">Standar Pembayaran Nasional</span>
                   </div>
                   <span className="text-rose-600 font-extrabold text-xs tracking-wider">GPN</span>
                 </div>
@@ -210,77 +213,57 @@ export default function PaymentGatewayModal({ isOpen, onClose, data, onSuccess }
                 {/* Info Merchant */}
                 <div className="my-2 text-center">
                   <p className="font-extrabold text-sm text-slate-900 tracking-tight">lupayyy, Konter</p>
-                  <p className="text-[10px] text-slate-500 font-mono">NMID: ID1026632009753 • A01</p>
+                  <p className="text-[10px] text-slate-500 font-mono font-semibold">NMID: ID1026632009753 • A01</p>
                 </div>
 
-                {/* Gambar QRIS Jelas & Proporsional */}
-                <div className="bg-slate-50 rounded-xl p-2 border border-slate-200 inline-block shadow-inner">
+                {/* Barcode QR Murni Tajam & Jelas (Resolusi Tinggi 400x400) */}
+                <div className="bg-white rounded-2xl p-3 border-2 border-slate-200 inline-block shadow-md group-hover:shadow-lg transition-shadow">
                   <img
-                    src="/qris_perpus.jpg"
-                    alt="QRIS Pembayaran"
-                    className="w-56 h-auto max-h-60 object-contain mx-auto select-none rounded-lg"
+                    src="/qris_clean.png"
+                    alt="QRIS Barcode"
+                    className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto select-none rounded-lg"
+                    style={{ imageRendering: 'crisp-edges' }}
                   />
                 </div>
 
                 <p className="text-[10px] text-slate-600 font-bold mt-2">
-                  BCA, Mandiri, BRI, BNI, DANA, GoPay, OVO, ShopeePay
+                  BCA, Mandiri, BRI, BNI, DANA, GoPay, OVO, ShopeePay, Livin
                 </p>
               </div>
 
-              {/* Status Live Auto-Detection (Pengganti Tombol Manual) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center space-x-3">
+              {/* Status Live Listening (Menunggu Pembayaran Masuk) */}
+              <div 
+                onClick={executeSuccessPayment}
+                className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center space-x-3 cursor-pointer hover:bg-emerald-100/80 transition-colors"
+              >
                 <div className="relative flex-shrink-0">
-                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 animate-ping absolute" />
-                  </span>
+                  {verifying ? (
+                    <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
+                  ) : (
+                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 animate-ping absolute" />
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-extrabold text-slate-800 flex items-center space-x-1.5">
+                  <p className="text-xs font-extrabold text-emerald-950 flex items-center space-x-1.5">
                     <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                    <span>Menunggu Pembayaran Masuk...</span>
+                    <span>{verifying ? 'Memverifikasi Pembayaran Masuk...' : 'Menunggu Pembayaran Masuk...'}</span>
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Scan via m-Banking / E-Wallet. Sistem akan mendeteksi otomatis saat saldo terkirim.
+                  <p className="text-[10px] text-emerald-800 mt-0.5">
+                    Scan barcode di atas dari aplikasi perbankan. Saldo akan otomatis terdeteksi.
                   </p>
                 </div>
               </div>
 
-              {/* Notice Kunci Keamanan */}
-              <div className="flex items-center justify-center space-x-1.5 text-[10px] text-slate-500 font-medium">
+              {/* Notice Kunci Proteksi */}
+              <div className="flex items-center justify-center space-x-1.5 text-[10px] text-slate-500 font-medium pt-1">
                 <Lock className="w-3 h-3 text-slate-400" />
-                <span>Konfirmasi manual dinonaktifkan (Verifikasi Real-time)</span>
+                <span>Verifikasi otomatis oleh sistem (Konfirmasi manual dinonaktifkan)</span>
               </div>
             </div>
           )}
         </div>
-
-        {/* Footer: Khusus Pengujian & Demo Sidang Skripsi */}
-        {paymentStatus !== 'SUCCESS' && (
-          <div className="p-3 bg-slate-50 border-t border-slate-200 flex-shrink-0">
-            <button
-              type="button"
-              onClick={executeSuccessPayment}
-              disabled={verifying}
-              className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white rounded-xl font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all disabled:opacity-50"
-              title="Simulasikan sinyal pembayaran berhasil masuk dari bank / e-wallet"
-            >
-              {verifying ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Memverifikasi Notifikasi Pembayaran...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-3.5 h-3.5 text-amber-300" />
-                  <span>⚡ Simulasikan Pembayaran Masuk (Demo Sidang)</span>
-                </>
-              )}
-            </button>
-            <p className="text-[9px] text-center text-slate-500 mt-1">
-              Gunakan tombol di atas untuk mensimulasikan transfer sukses saat presentasi/sidang.
-            </p>
-          </div>
-        )}
 
       </div>
     </div>
