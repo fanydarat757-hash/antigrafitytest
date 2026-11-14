@@ -791,3 +791,30 @@ Akses sistem di browser: **`http://localhost:3000`**
 - **Petugas Sirkulasi**: Username `petugas2` | Password `petugas123`
 - **Kepala Sekolah**: Username `kepsek` | Password `kepsek123`
 - **Siswa / Anggota**: NISN `2024001` (Ahmad Fauzi) | Password `siswa123`
+
+
+---
+
+### 🧪 14. Matriks Pengujian Black Box Testing (Bab 4 Skripsi)
+
+Pengujian fungsionalitas sistem menggunakan metode **Black Box Testing** dengan teknik *Equivalence Partitioning* dan *Boundary Value Analysis* untuk memastikan seluruh alur bisnis, aturan validasi basis data, dan integritas transaksi berjalan sesuai spesifikasi kebutuhan perangkat lunak:
+
+| No | Kode Uji | Skenario Pengujian | Data Masukan (Input) | Hasil yang Diharapkan | Hasil Pengujian Aktual | Kesimpulan |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: |
+| 1 | **TC-01** | Autentikasi Petugas / Admin | Username: `admin`, Password: `admin123` | Sistem memvalidasi kredensial, membuat sesi, dan mengarahkan ke Dashboard Utama | Berhasil masuk ke Dashboard Unit Perpustakaan | **VALID** |
+| 2 | **TC-02** | Autentikasi dengan Kredensial Salah | Username: `admin`, Password: `salahpassword` | Sistem menolak akses dan menampilkan pesan peringatan kredensial tidak valid | Sistem memblokir akses dan memunculkan toast error | **VALID** |
+| 3 | **TC-03** | Pendaftaran Anggota Baru (Siswa) | NISN: `2024099`, Nama: `Budi Santoso`, Kelas: `XI IPA 1` | Record baru tersimpan di `tb_anggota` dan siswa dapat langsung login mandiri | Data tersimpan di database dan KTA digital langsung aktif | **VALID** |
+| 4 | **TC-04** | Validasi Duplikasi NISN Anggota | NISN: `2024001` (sudah terdaftar) | Sistem mendeteksi Primary Key duplikat dan menolak penyimpanan record | Sistem menampilkan pesan "NISN sudah digunakan" | **VALID** |
+| 5 | **TC-05** | Transaksi Peminjaman Buku Normal | Siswa: `2024001`, Buku: `BK001` (Stok: 5, Pinjam Aktif: 0) | Transaksi tercatat di `tb_peminjaman`, stok buku berkurang menjadi 4 | Transaksi berhasil, stok `tb_buku` otomatis terpotong -1 | **VALID** |
+| 6 | **TC-06** | Validasi Kuota Maksimal Pinjam Siswa | Siswa telah meminjam 2 buku aktif, mengajukan pinjaman ke-3 | Sistem menolak transaksi pinjaman ke-3 sesuai SOP kuota maksimal perpustakaan | Muncul notifikasi: "Batas maksimal 2 buku aktif tercapai" | **VALID** |
+| 7 | **TC-07** | Validasi Stok Buku Kosong | Meminjam buku dengan `stok = 0` | Sistem menolak transaksi peminjaman dan memberi peringatan stok fisik habis | Peminjaman dibatalkan dan form memberikan instruksi ke petugas | **VALID** |
+| 8 | **TC-08** | Perpanjangan Peminjaman (+7 Hari) | Peminjaman aktif dengan `perpanjangan_count = 0` | Tanggal jatuh tempo bertambah +7 hari dan `perpanjangan_count` menjadi 1 | Tanggal tempo diperbarui dan tombol perpanjang terkunci (1x) | **VALID** |
+| 9 | **TC-09** | Validasi Batas Maksimal Perpanjangan | Mengajukan perpanjangan kedua pada record dengan `count = 1` | Sistem menolak perpanjangan kedua | Sistem mengunci tombol dan membatasi kuota maksimal 1 kali | **VALID** |
+| 10 | **TC-10** | Pengembalian Buku Tepat Waktu | Buku dikembalikan sebelum/pada tanggal jatuh tempo | `status_denda` = `Tanpa Denda`, `denda` = Rp 0, stok buku dipulihkan +1 | Denda otomatis Rp 0 dan stok fisik kembali bertambah | **VALID** |
+| 11 | **TC-11** | Kalkulasi Denda Keterlambatan Otomatis | Terlambat 3 hari (Tarif: Rp 1.000/hari di `tb_pengaturan`) | Sistem menghitung denda: $3 \times \text{Rp } 1.000 = \text{Rp } 3.000$ | Nominal denda tertera tepat Rp 3.000 secara otomatis | **VALID** |
+| 12 | **TC-12** | Pelunasan Denda via QRIS Gateway | Scan QRIS dan verifikasi pembayaran digital | Record `tb_pengembalian` di-update: `status_denda`='Lunas', simpan `id_gateway` | Transaksi otomatis lunas dan kwitansi resmi siap terbit | **VALID** |
+| 13 | **TC-13** | Cetak Kartu Anggota (KTA) Digital | Klik tombol cetak KTA pada data siswa | Kartu siswa ter-render rapi lengkap dengan barcode NISN dan foto | Desain KTA standar nasional siap dicetak printer / PDF | **VALID** |
+| 14 | **TC-14** | Cetak Struk Kwitansi Denda Resmi | Klik tombol cetak kwitansi pada transaksi lunas | Struk kwitansi memuat nomor transaksi, kop sekolah, dan rincian denda | Kwitansi resmi terbit dengan format termal/standar loket | **VALID** |
+| 15 | **TC-15** | Pengesahan Laporan oleh Kepala Sekolah | Login peran `kepsek`, buka modul laporan, cetak | Dokumen laporan menyematkan kop surat resmi dan TTD Kepala Sekolah | Laporan terbit sah dengan nama Ahmad Marzuki, S.Pd.I | **VALID** |
+| 16 | **TC-16** | Ekspor Laporan ke Spreadsheet / Excel | Klik tombol "Export ke Excel/CSV" | Berkas `.csv` otomatis terunduh dengan struktur kolom lengkap | File spreadsheet terunduh dan dapat dibuka sempurna di Excel | **VALID** |
+| 17 | **TC-17** | Notifikasi Pengingat Jatuh Tempo WhatsApp | Klik tombol "Ingatkan WA" pada transaksi terlambat/H-1 | Membuka API WhatsApp dengan template pesan penagihan otomatis | Pesan peringatan terisi otomatis menuju nomor siswa | **VALID** |

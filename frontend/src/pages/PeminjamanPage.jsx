@@ -9,7 +9,8 @@ import {
   UserCheck,
   Book,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  MessageCircle
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import PaymentGatewayModal from '../components/PaymentGatewayModal';
@@ -147,6 +148,12 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSendWaReminder = (item) => {
+    const judul = item.buku?.judul_buku || item.kd_buku || 'buku perpustakaan';
+    const text = `Halo *${item.nama_anggota}*,\nKami dari Perpustakaan SMA Muhammadiyah 1 Pekalongan mengingatkan bahwa masa peminjaman buku *${judul}* (Kode Pinjam: ${item.kd_peminjaman}) telah jatuh tempo pada ${formatDateIndo(item.tgl_jatuh_tempo)}.\n\nMohon segera mengembalikan buku ke loket perpustakaan untuk mencegah akumulasi denda. Terima kasih.`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const computedJatuhTempo = () => {
@@ -337,6 +344,17 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
                                 : extensionFee > 0 
                                   ? `+7 Hari (Rp ${extensionFee.toLocaleString('id-ID')})` 
                                   : '+7 Hari'}
+                            </button>
+                          )}
+                          {/* Tombol Pengingat WhatsApp (Khusus Terlambat / H-1) */}
+                          {(item.status === 'Terlambat' || getDaysUntilDue(item.tgl_jatuh_tempo) <= 1) && (
+                            <button
+                              onClick={() => handleSendWaReminder(item)}
+                              title="Kirim pesan notifikasi pengingat jatuh tempo via WhatsApp"
+                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold inline-flex items-center space-x-1 transition-colors"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Ingatkan WA</span>
                             </button>
                           )}
                           <button
