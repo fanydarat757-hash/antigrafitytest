@@ -1,26 +1,27 @@
-# PANDUAN TEKNIS & DOKUMENTASI ARSITEKTUR SISTEM
+# SISTEM PANDUAN TEKNIS & DOKUMENTASI ARSITEKTUR
+
 ## Sistem Informasi Perpustakaan SMA Muhammadiyah 1 Pekalongan, Lampung Timur
-### Dokumen Rujukan Tugas Akhir / Skripsi & Mata Kuliah Basis Data Lanjut
+### Dokumen Rujukan Tugas Akhir / Skripsi & Mata Kuliah Dasar Data Lanjut
 
 ---
 
 ### 📌 1. Identitas Sistem & Objek Penelitian
-- **Instansi**: SMA Muhammadiyah 1 Pekalongan
-- **Alamat**: Jl. Raya Pekalongan, Kec. Pekalongan, Kab. Lampung Timur, Prov. Lampung
-- **Stack Teknologi**:
-  - **Frontend**: React.js 18 (Vite SPA) + Tailwind CSS + Lucide Icons (Port 3000)
-  - **Backend**: PHP RESTful API Architecture / Laravel Service Pattern (Port 8000)
-  - **Database**: MySQL / MariaDB (InnoDB Relational Engine dengan Enforced Foreign Keys)
-  - **Payment Gateway**: Multi-Channel QRIS (Merchant Nasional) & Bank Virtual Account (BCA, BRI, Mandiri)
-- **Aktor Sistem (Role-Based Access Control / RBAC)**:
+* **Instansi**: SMA Muhammadiyah 1 Pekalongan
+* **Alamat**: Jl. Raya Pekalongan, Kec. Pekalongan, Kab. Lampung Timur, Prov. Lampung
+* **Stack Teknologi**:
+  * **Frontend**: React.js 18 (Vite SPA) + Tailwind CSS + Lucide Icons (Port 3000)
+  * **Backend**: Arsitektur API RESTful PHP / Pola Layanan Laravel (Port 8000)
+  * **Basis Data**: MySQL / MariaDB (InnoDB Relational Engine dengan Foreign Key yang Diterapkan)
+  * **Gerbang Pembayaran**: Multi Channel QRIS (Merchant Nasional) & Bank Virtual Account (BCA, BRI, Mandiri)
+* **Aktor Sistem (Kontrol Akses Berbasis Peran / RBAC)**:
   1. **Kepala Unit Perpustakaan** (`admin`): Siti Farida, A.Md
   2. **Petugas Sirkulasi & Pelayanan** (`petugas2`): Samsul Arifin, S.Pd
-  3. **Kepala Sekolah / Supervisor Mutu** (`kepsek`): Ahmad Marzuki, S.Pd.I
+  3. **Kepala Sekolah / Pembimbing Mutu** (`kepsek`): Ahmad Marzuki, S.Pd.I
   4. **Siswa / Anggota Perpustakaan** (`nisn`): Login mandiri & registrasi siswa
 
 ---
 
-### 🏛️ 2. Diagram Arsitektur Sistem (System Architecture Diagram)
+### 🏗️ 2. Arsitektur Sistem 3-Tier (Three-Tier Architecture)
 
 Sistem menggunakan model arsitektur **Modern Decoupled Client-Server (3-Tier)** yang memisahkan antarmuka interaktif pengguna, logika bisnis terpusat, dan persistensi basis data relasional serta layanan payment gateway eksternal.
 
@@ -43,20 +44,14 @@ flowchart TD
     end
 
     subgraph Data_Layer ["3. Data & External Integration Layer"]
-        MySQL[("MySQL Relational Database (InnoDB Engine)
-        - tb_anggota
-        - tb_petugas
-        - tb_buku
-        - tb_peminjaman
-        - tb_pengembalian
-        - tb_pengaturan")]
+        MySQL[("MySQL Relational Database (InnoDB Engine)<br/>- tb_anggota<br/>- tb_petugas<br/>- tb_buku<br/>- tb_peminjaman<br/>- tb_pengembalian<br/>- tb_pengaturan")]
         PG_Provider["Payment Gateway Provider (QRIS Merchant & Bank Host)"]
     end
 
-    UI_Siswa -->|HTTPS / JSON Axios| Router
-    UI_Petugas -->|HTTPS / JSON Axios| Router
-    UI_Admin -->|HTTPS / JSON Axios| Router
-    UI_Kepsek -->|HTTPS / JSON Axios| Router
+    UI_Siswa -->|"HTTPS / JSON Axios"| Router
+    UI_Petugas -->|"HTTPS / JSON Axios"| Router
+    UI_Admin -->|"HTTPS / JSON Axios"| Router
+    UI_Kepsek -->|"HTTPS / JSON Axios"| Router
 
     Router --> AuthService
     Router --> SirkulasiService
@@ -69,7 +64,8 @@ flowchart TD
     DendaService --> MySQL
     PaymentService --> MySQL
     ReportService --> MySQL
-    PaymentService <-->|API Invoice & Callback Settlement| PG_Provider
+    PaymentService -->|"API Invoice"| PG_Provider
+    PG_Provider -->|"Callback Settlement"| PaymentService
 ```
 
 ---
@@ -130,39 +126,40 @@ flowchart TD
     P5(("5.0 Transaksi Payment Gateway"))
     P6(("6.0 Pelaporan & Pengesahan"))
 
-    Siswa -->|Form Login / Register| P1
-    Petugas -->|Kredensial Petugas| P1
-    Admin -->|Kredensial Admin| P1
-    Kepsek -->|Kredensial Kepsek| P1
-    P1 <--> DS_Anggota
-    P1 <--> DS_Petugas
+    Siswa -->|"Form Login / Register"| P1
+    Petugas -->|"Kredensial Petugas"| P1
+    Admin -->|"Kredensial Admin"| P1
+    Kepsek -->|"Kredensial Kepsek"| P1
+    P1 --- DS_Anggota
+    P1 --- DS_Petugas
 
-    Admin -->|Kelola Data Buku & Stok| P2
-    P2 <--> DS_Buku
+    Admin -->|"Kelola Data Buku & Stok"| P2
+    P2 --- DS_Buku
 
-    Siswa -->|Request Pinjam Mandiri| P3
-    Petugas -->|Pencatatan Peminjaman Loket| P3
-    P3 <--> DS_Pinjam
-    P3 <--> DS_Buku
-    P3 <--> DS_Anggota
-    P3 <--> DS_Petugas
+    Siswa -->|"Request Pinjam Mandiri"| P3
+    Petugas -->|"Pencatatan Peminjaman Loket"| P3
+    P3 --- DS_Pinjam
+    P3 --- DS_Buku
+    P3 --- DS_Anggota
+    P3 --- DS_Petugas
 
-    Petugas -->|Input Pengembalian Buku| P4
-    P4 <--> DS_Kembali
-    P4 <--> DS_Pinjam
-    P4 <--> DS_Buku
-    P4 <--> DS_Atur
+    Petugas -->|"Input Pengembalian Buku"| P4
+    P4 --- DS_Kembali
+    P4 --- DS_Pinjam
+    P4 --- DS_Buku
+    P4 --- DS_Atur
 
-    Siswa -->|Bayar Denda / Perpanjang| P5
-    P5 <--> PayGW
-    P5 <--> DS_Kembali
-    P5 <--> DS_Pinjam
+    Siswa -->|"Bayar Denda / Perpanjang"| P5
+    P5 --> PayGW
+    PayGW --> P5
+    P5 --- DS_Kembali
+    P5 --- DS_Pinjam
 
-    Kepsek -->|Cetak Rekap Laporan| P6
-    Admin -->|Cetak Inventaris| P6
-    P6 <-- DS_Buku
-    P6 <-- DS_Pinjam
-    P6 <-- DS_Kembali
+    Kepsek -->|"Cetak Rekap Laporan"| P6
+    Admin -->|"Cetak Inventaris"| P6
+    DS_Buku --> P6
+    DS_Pinjam --> P6
+    DS_Kembali --> P6
 ```
 
 ---
@@ -171,7 +168,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph Aktor
+    subgraph Aktor ["Aktor Pengguna"]
         A_Siswa["👤 Siswa / Anggota"]
         A_Petugas["👮 Petugas Sirkulasi"]
         A_Admin["👩‍💼 Kepala Perpustakaan"]
@@ -221,9 +218,9 @@ flowchart LR
     A_Kepsek --> UC1
     A_Kepsek --> UC14
 
-    UC7 -.->|"<<include>>"| UC8
-    UC8 -.->|"<<extend>>"| UC5
-    UC8 -.->|"<<extend>>"| UC9
+    UC7 -.->|"[include]"| UC8
+    UC8 -.->|"[extend]"| UC5
+    UC8 -.->|"[extend]"| UC9
     A_PG --> UC5
 ```
 
@@ -235,87 +232,87 @@ Relasi antar-tabel dalam database `skripsi_perpus` telah dinormalisasi hingga ta
 
 ```mermaid
 erDiagram
-    tb_anggota ||--o{ tb_peminjaman : "memiliki_riwayat (1:N)"
-    tb_petugas ||--o{ tb_peminjaman : "mencatat_pinjam (1:N)"
-    tb_buku ||--o{ tb_peminjaman : "menjadi_item_pinjam (1:N)"
-    tb_peminjaman ||--o| tb_pengembalian : "diselesaikan_pada (1:1)"
-    tb_petugas ||--o{ tb_pengembalian : "menerima_kembali (1:N)"
-    tb_petugas ||--o{ tb_pengaturan : "mengonfigurasi (1:N)"
+    tb_anggota ||--o{ tb_peminjaman : memiliki_riwayat
+    tb_petugas ||--o{ tb_peminjaman : mencatat_pinjam
+    tb_buku ||--o{ tb_peminjaman : item_pinjam
+    tb_peminjaman ||--o| tb_pengembalian : diselesaikan_pada
+    tb_petugas ||--o{ tb_pengembalian : menerima_kembali
+    tb_petugas ||--o{ tb_pengaturan : mengonfigurasi
 
     tb_anggota {
-        varchar nisn PK "varchar(20) - Nomor Induk Siswa Nasional"
-        varchar nama_lengkap "varchar(50) - Nama Lengkap Anggota"
-        varchar kelas "varchar(30) - Kelas / Rombel"
-        mediumtext foto "mediumtext - Foto Profil Siswa (Base64)"
-        enum jenis_kelamin "enum('L','P') - Gender"
-        varchar password "varchar(255) - Password Akun Terenkripsi"
-        timestamp created_at "Waktu Registrasi Akun"
-        timestamp updated_at "Waktu Terakhir Diperbarui"
+        varchar nisn PK
+        varchar nama_lengkap
+        varchar kelas
+        mediumtext foto
+        enum jenis_kelamin
+        varchar password
+        timestamp created_at
+        timestamp updated_at
     }
 
     tb_petugas {
-        varchar username PK "varchar(30) - Username Akses"
-        varchar nama_petugas "varchar(50) - Nama Lengkap Staf"
-        varchar role "varchar(50) - Hak Akses (admin, petugas2, kepsek)"
-        varchar jabatan "varchar(100) - Jabatan Struktural"
-        mediumtext foto "mediumtext - Pas Foto Petugas"
-        varchar password "varchar(255) - Hash Password Keamanan"
-        varchar remember_token "varchar(100) - Token Sesi"
-        timestamp created_at "Waktu Akun Dibuat"
-        timestamp updated_at "Waktu Terakhir Diperbarui"
+        varchar username PK
+        varchar nama_petugas
+        varchar role
+        varchar jabatan
+        mediumtext foto
+        varchar password
+        varchar remember_token
+        timestamp created_at
+        timestamp updated_at
     }
 
     tb_buku {
-        varchar kd_buku PK "varchar(11) - Kode Unik Koleksi Buku"
-        varchar judul_buku "varchar(100) - Judul Buku Lengkap"
-        varchar pengarang "varchar(50) - Penulis / Pengarang"
-        varchar penerbit "varchar(60) - Penerbit Resmi"
-        varchar lokasi_rak "varchar(50) - Nomor Rak & Kategori Fisik"
-        varchar tahun_terbit "varchar(10) - Tahun Publikasi"
-        int stok "int(11) - Jumlah Stok Fisik Tersedia"
-        timestamp created_at "Waktu Input Katalog"
-        timestamp updated_at "Waktu Update Stok/Katalog"
+        varchar kd_buku PK
+        varchar judul_buku
+        varchar pengarang
+        varchar penerbit
+        varchar lokasi_rak
+        varchar tahun_terbit
+        int stok
+        timestamp created_at
+        timestamp updated_at
     }
 
     tb_peminjaman {
-        varchar kd_peminjaman PK "varchar(11) - Nomor Transaksi Peminjaman"
-        varchar kd_buku FK "varchar(11) - Relasi ke tb_buku"
-        varchar nisn FK "varchar(20) - Relasi ke tb_anggota"
-        varchar nama_anggota "varchar(50) - Nama Anggota / Siswa"
-        date tgl_peminjaman "date - Tanggal Mulai Pinjam"
-        date tgl_jatuh_tempo "date - Batas Akhir Pinjam"
-        enum status "enum('Dipinjam','Dikembalikan','Terlambat')"
-        varchar petugas_pinjam FK "varchar(30) - Relasi ke tb_petugas"
-        int perpanjangan_count "int(11) - Frekuensi Perpanjang (Maks 1x)"
-        decimal biaya_perpanjangan "decimal(12,2) - Biaya Administrasi Perpanjang"
-        varchar metode_bayar_perpanjang "varchar(50) - Jalur Pembayaran Perpanjang"
-        varchar id_transaksi_perpanjang "varchar(100) - Nomor Referensi Gateway"
-        timestamp created_at "Waktu Transaksi Dibuat"
-        timestamp updated_at "Waktu Status Berubah"
+        varchar kd_peminjaman PK
+        varchar kd_buku FK
+        varchar nisn FK
+        varchar nama_anggota
+        date tgl_peminjaman
+        date tgl_jatuh_tempo
+        enum status
+        varchar petugas_pinjam FK
+        int perpanjangan_count
+        decimal biaya_perpanjangan
+        varchar metode_bayar_perpanjang
+        varchar id_transaksi_perpanjang
+        timestamp created_at
+        timestamp updated_at
     }
 
     tb_pengembalian {
-        varchar kd_pengembalian PK "varchar(11) - Nomor Bukti Pengembalian"
-        varchar kd_peminjaman FK "varchar(11) - Relasi ke tb_peminjaman"
-        date tgl_pengembalian "date - Tanggal Fisik Buku Diterima"
-        varchar keterangan "varchar(50) - Kondisi Buku / Keterangan"
-        decimal denda "decimal(12,2) - Total Denda Keterlambatan"
-        varchar petugas_kembali FK "varchar(30) - Relasi ke tb_petugas"
-        enum status_denda "enum('Lunas','Tertunggak','Tanpa Denda')"
-        varchar metode_pembayaran "varchar(50) - Tunai Loket / QRIS / VA"
-        varchar id_transaksi_gateway "varchar(100) - Reference ID Payment"
-        datetime waktu_bayar "datetime - Waktu Pelunasan Tercatat"
-        timestamp created_at "Waktu Pengembalian Dicatat"
-        timestamp updated_at "Waktu Terakhir Diperbarui"
+        varchar kd_pengembalian PK
+        varchar kd_peminjaman FK
+        date tgl_pengembalian
+        varchar keterangan
+        decimal denda
+        varchar petugas_kembali FK
+        enum status_denda
+        varchar metode_pembayaran
+        varchar id_transaksi_gateway
+        datetime waktu_bayar
+        timestamp created_at
+        timestamp updated_at
     }
 
     tb_pengaturan {
-        int id PK "int(11) - ID Konfigurasi Auto Increment"
-        varchar kunci UK "varchar(50) - Kunci Pengaturan Unik"
-        text nilai "text - Nilai Konfigurasi (Tarif Denda, Hari Pinjam, NMID)"
-        varchar keterangan "varchar(100) - Deskripsi Parameter"
-        varchar diubah_oleh FK "varchar(30) - Relasi Petugas Admin Pengubah"
-        timestamp updated_at "Waktu Perubahan Parameter"
+        int id PK
+        varchar kunci UK
+        text nilai
+        varchar keterangan
+        varchar diubah_oleh FK
+        timestamp updated_at
     }
 ```
 
@@ -329,48 +326,48 @@ erDiagram
 #### A. Alur Peminjaman Buku & Validasi Kuota Maksimal
 ```mermaid
 flowchart TD
-    Start([Mulai Transaksi Pinjam]) --> InputForm[Input / Pilih Siswa dan Buku]
-    InputForm --> CekStok{Cek Stok Fisik Buku > 0 ?}
+    Start(["Mulai Transaksi Pinjam"]) --> InputForm["Input / Pilih Siswa dan Buku"]
+    InputForm --> CekStok{"Cek Stok Fisik Buku > 0 ?"}
     
-    CekStok -- Tidak --> ErrStok[Tampilkan Peringatan: Stok Buku Sedang Habis]
-    ErrStok --> SelesaiFail([Transaksi Dibatalkan])
+    CekStok -- "Tidak" --> ErrStok["Tampilkan Peringatan: Stok Buku Sedang Habis"]
+    ErrStok --> SelesaiFail(["Transaksi Dibatalkan"])
     
-    CekStok -- Ya --> CekKuota{Cek Kuota Pinjam Aktif Siswa < 2 Buku ?}
-    CekKuota -- Tidak --> ErrKuota[Tampilkan Peringatan: Batas Maksimal 2 Buku Aktif Tercapai]
+    CekStok -- "Ya" --> CekKuota{"Cek Kuota Pinjam Aktif Siswa < 2 Buku ?"}
+    CekKuota -- "Tidak" --> ErrKuota["Tampilkan Peringatan: Batas Maksimal 2 Buku Aktif Tercapai"]
     ErrKuota --> SelesaiFail
     
-    CekKuota -- Ya --> GenerateKode[Generate Kode Transaksi Otomatis PJxxx]
-    GenerateKode --> HitungTempo[Hitung Tanggal Jatuh Tempo Sesuai Durasi tb_pengaturan]
-    HitungTempo --> SimpanDB[Simpan ke tb_peminjaman dengan Relasi NISN & Petugas]
-    SimpanDB --> PotongStok[Update tb_buku: Kurangi Stok Fisik -1]
-    PotongStok --> SuksesPinjam[Peminjaman Aktif & Masuk Antrean Sirkulasi]
-    SuksesPinjam --> Selesai([Selesai])
+    CekKuota -- "Ya" --> GenerateKode["Generate Kode Transaksi Otomatis PJxxx"]
+    GenerateKode --> HitungTempo["Hitung Tanggal Jatuh Tempo Sesuai Durasi tb_pengaturan"]
+    HitungTempo --> SimpanDB["Simpan ke tb_peminjaman dengan Relasi NISN & Petugas"]
+    SimpanDB --> PotongStok["Update tb_buku: Kurangi Stok Fisik -1"]
+    PotongStok --> SuksesPinjam["Peminjaman Aktif & Masuk Antrean Sirkulasi"]
+    SuksesPinjam --> Selesai(["Selesai"])
 ```
 
 #### B. Alur Pengembalian Buku & Perhitungan Denda Otomatis
 ```mermaid
 flowchart TD
-    Start([Mulai Pengembalian Buku]) --> CariKode[Petugas Memilih Kode Peminjaman PJxxx]
-    CariKode --> CekTanggal{Tanggal Pengembalian > Tanggal Jatuh Tempo ?}
+    Start(["Mulai Pengembalian Buku"]) --> CariKode["Petugas Memilih Kode Peminjaman PJxxx"]
+    CariKode --> CekTanggal{"Tanggal Pengembalian > Tanggal Jatuh Tempo ?"}
     
-    CekTanggal -- Tidak Terlambat --> DendaNol[Set Denda = Rp 0 & Status 'Tanpa Denda']
-    DendaNol --> UpdatePengembalian
+    CekTanggal -- "Tidak Terlambat" --> DendaNol["Set Denda = Rp 0 & Status Tanpa Denda"]
+    DendaNol --> UpdatePengembalian["Simpan Record ke tb_pengembalian"]
     
-    CekTanggal -- Terlambat --> HitungHari[Hitung Selisih Hari Keterlambatan]
-    HitungHari --> AmbilTarif[Ambil Tarif Denda Per Hari dari tb_pengaturan]
-    AmbilTarif --> KalkulasiDenda[Hitung Total: Selisih Hari x Tarif Denda]
-    KalkulasiDenda --> PilihanBayar{Pilih Jalur Pelunasan Denda}
+    CekTanggal -- "Terlambat" --> HitungHari["Hitung Selisih Hari Keterlambatan"]
+    HitungHari --> AmbilTarif["Ambil Tarif Denda Per Hari dari tb_pengaturan"]
+    AmbilTarif --> KalkulasiDenda["Hitung Total: Selisih Hari x Tarif Denda"]
+    KalkulasiDenda --> PilihanBayar{"Pilih Jalur Pelunasan Denda"}
     
-    PilihanBayar -- Tunai Loket --> SetLunasTunai[Petugas Terima Uang Tunai & Cetak Kwitansi]
+    PilihanBayar -- "Tunai Loket" --> SetLunasTunai["Petugas Terima Uang Tunai & Cetak Kwitansi"]
     SetLunasTunai --> UpdatePengembalian
     
-    PilihanBayar -- Payment Gateway --> BukaGateway[Buka Modal Gateway: Scan QRIS / No VA]
-    BukaGateway --> VerifGateway[Konfirmasi Pembayaran Digital Berhasil]
+    PilihanBayar -- "Payment Gateway" --> BukaGateway["Buka Modal Gateway: Scan QRIS / No VA"]
+    BukaGateway --> VerifGateway["Konfirmasi Pembayaran Digital Berhasil"]
     VerifGateway --> UpdatePengembalian
     
-    UpdatePengembalian[Simpan Record ke tb_pengembalian] --> PulihkanStok[Update tb_buku: Tambah Stok Fisik +1]
-    PulihkanStok --> UpdateStatusPinjam[Update Status tb_peminjaman = 'Dikembalikan']
-    UpdateStatusPinjam --> Selesai([Selesai & Kwitansi Siap Dicetak])
+    UpdatePengembalian --> PulihkanStok["Update tb_buku: Tambah Stok Fisik +1"]
+    PulihkanStok --> UpdateStatusPinjam["Update Status tb_peminjaman = Dikembalikan"]
+    UpdateStatusPinjam --> Selesai(["Selesai & Kwitansi Siap Dicetak"])
 ```
 
 ---
@@ -380,29 +377,29 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Siswa as Siswa / Anggota
-    participant UI as React Frontend (PaymentGatewayModal)
-    participant API as PHP RESTful API
-    participant DB as Database MySQL (skripsi_perpus)
-    participant PG as Payment Gateway (QRIS / Bank)
+    actor Siswa as "Siswa / Anggota"
+    participant UI as "React Frontend (PaymentGatewayModal)"
+    participant API as "PHP RESTful API"
+    participant DB as "Database MySQL (skripsi_perpus)"
+    participant PG as "Payment Gateway (QRIS / Bank)"
 
-    Siswa->>UI: Klik 'Lunasi Denda Digital' / 'Perpanjang Pinjaman'
+    Siswa->>UI: Klik Lunasi Denda Digital atau Perpanjang Pinjaman
     UI->>API: POST /api/payment-gateway/create-invoice (Nominal, KD Transaksi)
     API->>DB: Query tarif denda & merchant info dari tb_pengaturan
     DB-->>API: Data konfigurasi (NMID: ID1026632009753, Merchant: lupayyy, Konter)
     API-->>UI: Return Invoice (Order ID, Nomor VA BCA/BRI/Mandiri, Barcode QRIS)
     
-    UI-->>Siswa: Tampilkan QR Code Standar Nasional + Tombol Zoom & Fullscreen
+    UI-->>Siswa: Tampilkan QR Code Standar Nasional
     Siswa->>PG: Scan QRIS via Mobile Banking / E-Wallet (DANA, Livin, BCA)
     PG-->>Siswa: Notifikasi Uang Berhasil Ditransfer
     
-    Siswa->>UI: Klik tombol [ ✅ Saya Sudah Transfer (Konfirmasi Sekarang) ]
-    UI->>API: POST /api/pengembalian/{kd}/bayar-denda (id_transaksi_gateway, metode)
+    Siswa->>UI: Verifikasi otomatis status transaksi
+    UI->>API: POST /api/pengembalian/bayar-denda (id_transaksi_gateway, metode)
     API->>DB: UPDATE tb_pengembalian SET status_denda='Lunas', waktu_bayar=NOW()
     API->>DB: UPDATE tb_peminjaman SET status='Dikembalikan'
     DB-->>API: Transaksi Berhasil Diperbarui
     API-->>UI: Response HTTP 200 (Status: SETTLED / LUNAS)
-    UI-->>Siswa: Tampilkan Badge LUNAS, Nomor Referensi & Tombol Tutup / Kwitansi
+    UI-->>Siswa: Tampilkan Badge LUNAS, Nomor Referensi & Kwitansi
 ```
 
 ---
@@ -494,11 +491,11 @@ classDiagram
         +verifySettlement(orderId)
     }
 
-    Anggota "1" --> "*" Peminjaman : melakukan
-    Petugas "1" --> "*" Peminjaman : melayani_input
-    Buku "1" --> "*" Peminjaman : dipinjam
-    Peminjaman "1" --> "1" Pengembalian : diselesaikan_dengan
-    Petugas "1" --> "*" Pengembalian : memverifikasi
+    Anggota --> Peminjaman : melakukan
+    Petugas --> Peminjaman : melayani_input
+    Buku --> Peminjaman : dipinjam
+    Peminjaman --> Pengembalian : diselesaikan_dengan
+    Petugas --> Pengembalian : memverifikasi
     Pengembalian ..> PaymentGatewayService : menggunakan
     Peminjaman ..> PengaturanSistem : membaca_durasi
     Pengembalian ..> PengaturanSistem : membaca_tarif_denda
@@ -515,13 +512,13 @@ stateDiagram-v2
     
     state Dipinjam {
         [*] --> Aktif
-        Aktif --> Diperpanjang: Siswa Ajukan Perpanjangan (+7 Hari & Biaya Admin)
+        Aktif --> Diperpanjang: Siswa Ajukan Perpanjangan (+7 Hari)
         Diperpanjang --> Aktif: Masa Pinjam Diperbarui
     }
 
-    Dipinjam --> Terlambat: Tanggal Sekarang > Tanggal Jatuh Tempo
+    Dipinjam --> Terlambat: Melewati Tanggal Jatuh Tempo
     
-    Dipinjam --> Dikembalikan: Buku Dikembalikan Tepat Waktu (Denda = Rp 0)
+    Dipinjam --> Dikembalikan: Buku Dikembalikan Tepat Waktu (Tanpa Denda)
     Terlambat --> Dikembalikan: Buku Dikembalikan & Denda Terbayar (Tunai / Gateway)
 
     Dikembalikan --> TersediaDiRak: Stok Fisik Buku Dipulihkan (+1)
@@ -538,32 +535,32 @@ Bagian ini memuat diagram alir prosedural (*System Flowcharts*) standar penulisa
 ```mermaid
 flowchart TD
     subgraph Flowchart_Sistem_Berjalan ["Sistem Berjalan (Konvensional / Delphi Manual)"]
-        SB_Start([Mulai]) --> SB_1[/Siswa Menyerahkan Kartu & Buku Fisik/]
-        SB_1 --> SB_2[Petugas Mencari Kartu Anggota di Rak Dokumen]
-        SB_2 --> SB_3[Petugas Menulis di Buku Besar Peminjaman]
-        SB_3 --> SB_4{Apakah Terjadi Keterlambatan?}
-        SB_4 -- Ya --> SB_5[Petugas Menghitung Denda Manual dengan Kalkulator]
-        SB_4 -- Tidak --> SB_6[Buku Masuk Rak]
-        SB_5 --> SB_7[/Siswa Membayar Tunai Fisik/]
-        SB_7 --> SB_8[Petugas Menulis Bukti di Kertas Bon]
-        SB_8 --> SB_End([Selesai])
+        SB_Start(["Mulai"]) --> SB_1[/"Siswa Menyerahkan Kartu & Buku Fisik"/]
+        SB_1 --> SB_2["Petugas Mencari Kartu Anggota di Rak Dokumen"]
+        SB_2 --> SB_3["Petugas Menulis di Buku Besar Peminjaman"]
+        SB_3 --> SB_4{"Apakah Terjadi Keterlambatan?"}
+        SB_4 -- "Ya" --> SB_5["Petugas Menghitung Denda Manual dengan Kalkulator"]
+        SB_4 -- "Tidak" --> SB_6["Buku Masuk Rak"]
+        SB_5 --> SB_7[/"Siswa Membayar Tunai Fisik"/]
+        SB_7 --> SB_8["Petugas Menulis Bukti di Kertas Bon"]
+        SB_8 --> SB_End(["Selesai"])
         SB_6 --> SB_End
     end
 
     subgraph Flowchart_Sistem_Usulan ["Sistem Usulan (Modern Web Decoupled + QRIS)"]
-        SU_Start([Mulai]) --> SU_1[/Siswa / Petugas Input Kode Buku & NISN di Web/]
-        SU_1 --> SU_2[(Sistem Validasi Kuota 2 Buku & Stok Otomatis di MySQL)]
-        SU_2 --> SU_3{Data Valid & Stok Ada?}
-        SU_3 -- Tidak --> SU_Err[/Tolak Transaksi & Munculkan Notifikasi/]
-        SU_3 -- Ya --> SU_4[Simpan Transaksi & Auto-Generate Kode PJxxx]
-        SU_4 --> SU_5{Buku Dikembalikan?}
-        SU_5 -- Ya --> SU_6[(Engine Denda Hitung Otomatis via tb_pengaturan)]
-        SU_6 --> SU_7{Ada Denda Keterlambatan?}
-        SU_7 -- Ya --> SU_8[/Pilihan Bayar: Tunai Loket / QRIS Payment Gateway/]
-        SU_8 --> SU_9[Konfirmasi Bayar & Pulihkan Stok +1]
-        SU_7 -- Tidak --> SU_9
-        SU_9 --> SU_10[/Cetak Kwitansi & Laporan Otomatis Bertanda Tangan/]
-        SU_10 --> SU_End([Selesai])
+        SU_Start(["Mulai"]) --> SU_1[/"Siswa / Petugas Input Kode Buku & NISN di Web"/]
+        SU_1 --> SU_2[("Sistem Validasi Kuota 2 Buku & Stok Otomatis di MySQL")]
+        SU_2 --> SU_3{"Data Valid & Stok Ada?"}
+        SU_3 -- "Tidak" --> SU_Err[/"Tolak Transaksi & Munculkan Notifikasi"/]
+        SU_3 -- "Ya" --> SU_4["Simpan Transaksi & Auto-Generate Kode PJxxx"]
+        SU_4 --> SU_5{"Buku Dikembalikan?"}
+        SU_5 -- "Ya" --> SU_6[("Engine Denda Hitung Otomatis via tb_pengaturan")]
+        SU_6 --> SU_7{"Ada Denda Keterlambatan?"}
+        SU_7 -- "Ya" --> SU_8[/"Pilihan Bayar: Tunai Loket / QRIS Payment Gateway"/]
+        SU_8 --> SU_9["Konfirmasi Bayar & Pulihkan Stok +1"]
+        SU_7 -- "Tidak" --> SU_9
+        SU_9 --> SU_10[/"Cetak Kwitansi & Laporan Otomatis Bertanda Tangan"/]
+        SU_10 --> SU_End(["Selesai"])
         SU_Err --> SU_End
     end
 ```
@@ -571,29 +568,29 @@ flowchart TD
 #### B. Flowchart 2: Login & Autentikasi Pengguna Multi-Role (RBAC)
 ```mermaid
 flowchart TD
-    StartLogin([Mulai]) --> TampilkanLogin[/Tampilkan Halaman Login Portal/]
-    TampilkanLogin --> PilihRole{Pilih Jenis Akun}
+    StartLogin(["Mulai"]) --> TampilkanLogin[/"Tampilkan Halaman Login Portal"/]
+    TampilkanLogin --> PilihRole{"Pilih Jenis Akun"}
     
-    PilihRole -- "Petugas / Admin" --> InputStaff[/Input Username & Password Petugas/]
-    PilihRole -- "Siswa / Anggota" --> InputSiswa[/Input NISN & Password Siswa/]
+    PilihRole -- "Petugas / Admin" --> InputStaff[/"Input Username & Password Petugas"/]
+    PilihRole -- "Siswa / Anggota" --> InputSiswa[/"Input NISN & Password Siswa"/]
     
-    InputStaff --> CekStaffDB[(Query ke tb_petugas WHERE username=?)]
-    CekStaffDB --> ValidStaff{Kredensial Sesuai?}
-    ValidStaff -- Tidak --> PesanGagalStaff[/Tampilkan Pesan: Username / Password Salah/]
+    InputStaff --> CekStaffDB[("Query ke tb_petugas WHERE username=?")]
+    CekStaffDB --> ValidStaff{"Kredensial Sesuai?"}
+    ValidStaff -- "Tidak" --> PesanGagalStaff[/"Tampilkan Pesan: Username / Password Salah"/]
     PesanGagalStaff --> TampilkanLogin
-    ValidStaff -- Ya --> CekRoleStaff{Cek Kolom Role}
+    ValidStaff -- "Ya" --> CekRoleStaff{"Cek Kolom Role"}
     
-    CekRoleStaff -- "kepala_perpus (admin)" --> DashAdmin[/Buka Dashboard Super Admin: Kelola Buku, Staf & Pengaturan/]
-    CekRoleStaff -- "petugas_sirkulasi (petugas2)" --> DashPetugas[/Buka Loket Sirkulasi: Pelayanan Pinjam & Denda/]
-    CekRoleStaff -- "kepala_sekolah (kepsek)" --> DashKepsek[/Buka Portal Eksekutif: Audit Mutu & Pengesahan Laporan/]
+    CekRoleStaff -- "kepala_perpus (admin)" --> DashAdmin[/"Buka Dashboard Super Admin: Kelola Buku, Staf & Pengaturan"/]
+    CekRoleStaff -- "petugas_sirkulasi (petugas2)" --> DashPetugas[/"Buka Loket Sirkulasi: Pelayanan Pinjam & Denda"/]
+    CekRoleStaff -- "kepala_sekolah (kepsek)" --> DashKepsek[/"Buka Portal Eksekutif: Audit Mutu & Pengesahan Laporan"/]
 
-    InputSiswa --> CekSiswaDB[(Query ke tb_anggota WHERE nisn=?)]
-    CekSiswaDB --> ValidSiswa{Password Sesuai?}
-    ValidSiswa -- Tidak --> PesanGagalSiswa[/Tampilkan Pesan: NISN / Password Tidak Valid/]
+    InputSiswa --> CekSiswaDB[("Query ke tb_anggota WHERE nisn=?")]
+    CekSiswaDB --> ValidSiswa{"Password Sesuai?"}
+    ValidSiswa -- "Tidak" --> PesanGagalSiswa[/"Tampilkan Pesan: NISN / Password Tidak Valid"/]
     PesanGagalSiswa --> TampilkanLogin
-    ValidSiswa -- Ya --> DashSiswa[/Buka Portal Siswa: Katalog, Pinjam Mandiri & KTA Digital/]
+    ValidSiswa -- "Ya" --> DashSiswa[/"Buka Portal Siswa: Katalog, Pinjam Mandiri & KTA Digital"/]
 
-    DashAdmin --> SelesaiLogin([Selesai])
+    DashAdmin --> SelesaiLogin(["Selesai"])
     DashPetugas --> SelesaiLogin
     DashKepsek --> SelesaiLogin
     DashSiswa --> SelesaiLogin
@@ -602,149 +599,147 @@ flowchart TD
 #### C. Flowchart 3: Transaksi Peminjaman Buku (Front-Desk & Portal Mandiri)
 ```mermaid
 flowchart TD
-    StartPinjam([Mulai Peminjaman Buku]) --> PilihBuku[/Pilih Buku dari Katalog Rak/]
-    PilihBuku --> QueryStok[(Query Stok dari tb_buku)]
-    QueryStok --> CekStokBuku{Stok Fisik > 0 ?}
+    StartPinjam(["Mulai Peminjaman Buku"]) --> PilihBuku[/"Pilih Buku dari Katalog Rak"/]
+    PilihBuku --> QueryStok[("Query Stok dari tb_buku")]
+    QueryStok --> CekStokBuku{"Stok Fisik > 0 ?"}
     
-    CekStokBuku -- Tidak --> AlertHabis[/Tampilkan: Stok Buku Sedang Kosong di Rak/]
-    AlertHabis --> StopFail([Selesai / Gagal])
+    CekStokBuku -- "Tidak" --> AlertHabis[/"Tampilkan: Stok Buku Sedang Kosong di Rak"/]
+    AlertHabis --> StopFail(["Selesai / Gagal"])
     
-    CekStokBuku -- Ya --> InputPeminjam[/Pilih / Masukkan NISN Siswa/]
-    InputPeminjam --> QueryKuota[(Hitung Transaksi Aktif Siswa di tb_peminjaman)]
-    QueryKuota --> CekMaksimal{Jumlah Buku Aktif < 2 Buku ?}
+    CekStokBuku -- "Ya" --> InputPeminjam[/"Pilih / Masukkan NISN Siswa"/]
+    InputPeminjam --> QueryKuota[("Hitung Transaksi Aktif Siswa di tb_peminjaman")]
+    QueryKuota --> CekMaksimal{"Jumlah Buku Aktif < 2 Buku ?"}
     
-    CekMaksimal -- Tidak --> AlertKuota[/Tampilkan: Kuota Maksimal 2 Buku Telah Tercapai/]
+    CekMaksimal -- "Tidak" --> AlertKuota[/"Tampilkan: Kuota Maksimal 2 Buku Telah Tercapai"/]
     AlertKuota --> StopFail
     
-    CekMaksimal -- Ya --> GenerateNomor[Generate Otomatis Kode Transaksi: PJxxx]
-    GenerateNomor --> AmbilDurasi[(Ambil durasi_pinjam dari tb_pengaturan)]
-    AmbilDurasi --> HitungTempo[Hitung Tanggal Jatuh Tempo = Hari Pinjam + Durasi]
-    HitungTempo --> BeginTrans[Mulai Transaksi Database (ACID)]
-    BeginTrans --> InsertPinjam[(INSERT INTO tb_peminjaman dengan FK nisn, kd_buku, petugas)]
-    InsertPinjam --> KurangStok[(UPDATE tb_buku SET stok = stok - 1)]
-    KurangStok --> CommitTrans[Commit Transaksi ke MySQL]
-    CommitTrans --> TampilSukses[/Tampilkan Notifikasi Berhasil & Masuk Daftar Sirkulasi/]
-    TampilSukses --> StopSuccess([Selesai])
+    CekMaksimal -- "Ya" --> GenerateNomor["Generate Otomatis Kode Transaksi: PJxxx"]
+    GenerateNomor --> AmbilDurasi[("Ambil durasi_pinjam dari tb_pengaturan")]
+    AmbilDurasi --> HitungTempo["Hitung Tanggal Jatuh Tempo = Hari Pinjam + Durasi"]
+    HitungTempo --> BeginTrans["Mulai Transaksi Database (ACID)"]
+    BeginTrans --> InsertPinjam[("INSERT INTO tb_peminjaman dengan FK nisn, kd_buku, petugas")]
+    InsertPinjam --> KurangStok[("UPDATE tb_buku SET stok = stok - 1")]
+    KurangStok --> CommitTrans["Commit Transaksi ke MySQL"]
+    CommitTrans --> TampilSukses[/"Tampilkan Notifikasi Berhasil & Masuk Daftar Sirkulasi"/]
+    TampilSukses --> StopSuccess(["Selesai"])
 ```
 
 #### D. Flowchart 4: Transaksi Pengembalian Buku & Perhitungan Denda Otomatis
 ```mermaid
 flowchart TD
-    StartKembali([Mulai Pengembalian Buku]) --> PilihTransaksi[/Pilih Transaksi Peminjaman Aktif PJxxx/]
-    PilihTransaksi --> BacaData[(Baca Data Transaksi & tgl_jatuh_tempo)]
-    BacaData --> InputKondisi[/Input Tanggal Kembali & Keterangan Kondisi Buku/]
-    InputKondisi --> BandingkanTanggal{tgl_pengembalian > tgl_jatuh_tempo ?}
+    StartKembali(["Mulai Pengembalian Buku"]) --> PilihTransaksi[/"Pilih Transaksi Peminjaman Aktif PJxxx"/]
+    PilihTransaksi --> BacaData[("Baca Data Transaksi & tgl_jatuh_tempo")]
+    BacaData --> InputKondisi[/"Input Tanggal Kembali & Keterangan Kondisi Buku"/]
+    InputKondisi --> BandingkanTanggal{"Tanggal Kembali > Tanggal Jatuh Tempo ?"}
     
-    BandingkanTanggal -- Tidak Terlambat --> NolDenda[Set Denda = Rp 0, Status = 'Tanpa Denda']
-    NolDenda --> SimpanPengembalian
+    BandingkanTanggal -- "Tidak Terlambat" --> NolDenda["Set Denda = Rp 0, Status = Tanpa Denda"]
+    NolDenda --> SimpanPengembalian["Mulai Simpan Pengembalian Database"]
     
-    BandingkanTanggal -- Terlambat --> HitungSelisih[Hitung Selisih Hari Terlambat = Kembali - Tempo]
-    HitungSelisih --> BacaTarif[(SELECT nilai FROM tb_pengaturan WHERE kunci='tarif_denda')]
-    BacaTarif --> HitungTotalDenda[Total Denda = Selisih Hari x Tarif Denda]
-    HitungTotalDenda --> TampilNominalDenda[/Tampilkan Rincian Hari Terlambat & Total Denda/]
-    TampilNominalDenda --> MetodeBayar{Pilih Metode Bayar}
+    BandingkanTanggal -- "Terlambat" --> HitungSelisih["Hitung Selisih Hari Terlambat = Kembali - Tempo"]
+    HitungSelisih --> BacaTarif[("SELECT nilai FROM tb_pengaturan WHERE kunci = tarif_denda")]
+    BacaTarif --> HitungTotalDenda["Total Denda = Selisih Hari x Tarif Denda"]
+    HitungTotalDenda --> TampilNominalDenda[/"Tampilkan Rincian Hari Terlambat & Total Denda"/]
+    TampilNominalDenda --> MetodeBayar{"Pilih Metode Bayar"}
     
-    MetodeBayar -- "Tunai Loket" --> BayarTunai[/Siswa Menyerahkan Uang Tunai ke Petugas/]
-    BayarTunai --> SetLunasTunai[Set status_denda='Lunas', metode='Tunai Loket']
+    MetodeBayar -- "Tunai Loket" --> BayarTunai[/"Siswa Menyerahkan Uang Tunai ke Petugas"/]
+    BayarTunai --> SetLunasTunai["Set status_denda = Lunas, metode = Tunai Loket"]
     SetLunasTunai --> SimpanPengembalian
     
-    MetodeBayar -- "Payment Gateway" --> BukaModalGateway[/Buka Modal Gateway: Tampilkan QRIS / Virtual Account/]
-    BukaModalGateway --> ProsesGateway[Siswa Transfer via HP & Konfirmasi Pembayaran]
-    ProsesGateway --> SetLunasGateway[Set status_denda='Lunas', metode='QRIS/VA', simpan order_id]
+    MetodeBayar -- "Payment Gateway" --> BukaModalGateway[/"Buka Modal Gateway: Tampilkan QRIS / Virtual Account"/]
+    BukaModalGateway --> ProsesGateway["Siswa Transfer via HP & Konfirmasi Pembayaran"]
+    ProsesGateway --> SetLunasGateway["Set status_denda = Lunas, metode = QRIS/VA, simpan order_id"]
     SetLunasGateway --> SimpanPengembalian
 
-    SimpanPengembalian[Mulai Simpan Pengembalian Database] --> InsertKembali[(INSERT INTO tb_pengembalian)]
-    InsertKembali --> UpdatePinjam[(UPDATE tb_peminjaman SET status='Dikembalikan')]
-    UpdatePinjam --> TambahStok[(UPDATE tb_buku SET stok = stok + 1)]
-    TambahStok --> CetakKwitansiOpsi{Cetak Kwitansi Denda?}
+    SimpanPengembalian --> InsertKembali[("INSERT INTO tb_pengembalian")]
+    InsertKembali --> UpdatePinjam[("UPDATE tb_peminjaman SET status = Dikembalikan")]
+    UpdatePinjam --> TambahStok[("UPDATE tb_buku SET stok = stok + 1")]
+    TambahStok --> CetakKwitansiOpsi{"Cetak Kwitansi Denda?"}
     
-    CetakKwitansiOpsi -- Ya --> PrintBon[/Generate & Cetak Struk Kwitansi Denda/]
-    CetakKwitansiOpsi -- Tidak --> SelesaiKembali([Selesai])
+    CetakKwitansiOpsi -- "Ya" --> PrintBon[/"Generate & Cetak Struk Kwitansi Denda"/]
+    CetakKwitansiOpsi -- "Tidak" --> SelesaiKembali(["Selesai"])
     PrintBon --> SelesaiKembali
 ```
 
 #### E. Flowchart 5: Pembayaran Digital Melalui Payment Gateway (QRIS & Virtual Account)
 ```mermaid
 flowchart TD
-    StartPG([Mulai Pembayaran Digital]) --> KlikBayar[/Klik Tombol Bayar Digital pada Transaksi/]
-    KlikBayar --> PanggilAPI[POST /api/payment-gateway/create-invoice]
-    PanggilAPI --> AmbilConfig[(Ambil qris_merchant & qris_nmid dari tb_pengaturan)]
-    AmbilConfig --> GenerateInvoice[Buat Invoice Tagihan: Order ID & Nominal Tepat]
-    GenerateInvoice --> TampilModal[/Tampilkan Modal Payment Gateway SaaS/]
+    StartPG(["Mulai Pembayaran Digital"]) --> KlikBayar[/"Klik Tombol Bayar Digital pada Transaksi"/]
+    KlikBayar --> PanggilAPI["POST /api/payment-gateway/create-invoice"]
+    PanggilAPI --> AmbilConfig[("Ambil qris_merchant & qris_nmid dari tb_pengaturan")]
+    AmbilConfig --> GenerateInvoice["Buat Invoice Tagihan: Order ID & Nominal Tepat"]
+    GenerateInvoice --> TampilModal[/"Tampilkan Modal Payment Gateway"/]
     
-    TampilModal --> PilihChannel{Pilih Saluran Pembayaran}
+    TampilModal --> PilihChannel{"Pilih Saluran Pembayaran"}
     
-    PilihChannel -- "QRIS" --> TampilQRIS[/Tampilkan Barcode QRIS lupayyy Konter/]
-    TampilQRIS --> FiturZoom[/Gunakan Kontrol Zoom: Perbesar / Perkecil / Layar Penuh/]
-    FiturZoom --> ScanHP[/Siswa Buka E-Wallet / Mobile Banking & Scan Barcode/]
-    ScanHP --> TransferDana[/Input Nominal Sesuai Tagihan & Konfirmasi di HP/]
-    TransferDana --> KlikKonfirmasi
+    PilihChannel -- "QRIS" --> TampilQRIS[/"Tampilkan Barcode QRIS lupayyy Konter"/]
+    TampilQRIS --> ScanHP[/"Siswa Buka E-Wallet / Mobile Banking & Scan Barcode"/]
+    ScanHP --> TransferDana[/"Input Nominal Sesuai Tagihan & Konfirmasi di HP"/]
+    TransferDana --> KlikKonfirmasi[/"Siswa / Petugas Melakukan Verifikasi Pembayaran"/]
     
-    PilihChannel -- "Virtual Account Bank" --> GenerateVA[Generate Nomor VA Unik: 88012+NISN]
-    GenerateVA --> TampilVA[/Tampilkan Nomor VA BCA / BRI / Mandiri/]
-    TampilVA --> SalinVA[/Klik Tombol Salin Nomor VA/]
-    SalinVA --> TransferATM[/Siswa Transfer via Menu Virtual Account ATM / Livin / BRIMO/]
+    PilihChannel -- "Virtual Account Bank" --> GenerateVA["Generate Nomor VA Unik: 88012+NISN"]
+    GenerateVA --> TampilVA[/"Tampilkan Nomor VA BCA / BRI / Mandiri"/]
+    TampilVA --> SalinVA[/"Klik Tombol Salin Nomor VA"/]
+    SalinVA --> TransferATM[/"Siswa Transfer via Menu Virtual Account ATM / Livin / BRIMO"/]
     TransferATM --> KlikKonfirmasi
 
-    KlikKonfirmasi[/Siswa / Petugas Klik: '✅ Saya Sudah Transfer (Konfirmasi Sekarang)'/]
-    KlikKonfirmasi --> KirimVerifikasi[POST /api/pengembalian/bayar-denda atau perpanjang]
-    KirimVerifikasi --> UpdateStatusDB[(UPDATE Database: status='Lunas' & simpan id_gateway)]
-    UpdateStatusDB --> TampilBadgeLunas[/Tampilkan Badge Hijau: LUNAS SETTLED/]
-    TampilBadgeLunas --> EndPG([Selesai & Modal Ditutup])
+    KlikKonfirmasi --> KirimVerifikasi["POST /api/pengembalian/bayar-denda atau perpanjang"]
+    KirimVerifikasi --> UpdateStatusDB[("UPDATE Database: status = Lunas & simpan id_gateway")]
+    UpdateStatusDB --> TampilBadgeLunas[/"Tampilkan Badge Hijau: LUNAS SETTLED"/]
+    TampilBadgeLunas --> EndPG(["Selesai & Modal Ditutup"])
 ```
 
 #### F. Flowchart 6: Perpanjangan Peminjaman Buku (+7 Hari & Biaya Administrasi)
 ```mermaid
 flowchart TD
-    StartPerpanjang([Mulai Perpanjangan Pinjaman]) --> CekPerpanjangCount[(Cek perpanjangan_count di tb_peminjaman)]
-    CekPerpanjangCount --> BolehPerpanjang{perpanjangan_count < 1 ?}
+    StartPerpanjang(["Mulai Perpanjangan Pinjaman"]) --> CekPerpanjangCount[("Cek perpanjangan_count di tb_peminjaman")]
+    CekPerpanjangCount --> BolehPerpanjang{"perpanjangan_count < 1 ?"}
     
-    BolehPerpanjang -- Tidak --> TolakPerpanjang[/Tampilkan: Batas Maksimal 1x Perpanjangan Telah Dipakai/]
-    TolakPerpanjang --> EndFail([Selesai / Gagal])
+    BolehPerpanjang -- "Tidak" --> TolakPerpanjang[/"Tampilkan: Batas Maksimal 1x Perpanjangan Telah Dipakai"/]
+    TolakPerpanjang --> EndFail(["Selesai / Gagal"])
     
-    BolehPerpanjang -- Ya --> AmbilBiaya[(Ambil biaya_perpanjangan dari tb_pengaturan)]
-    AmbilBiaya --> CekBiayaAdmin{Biaya Administrasi > 0 ?}
+    BolehPerpanjang -- "Ya" --> AmbilBiaya[("Ambil biaya_perpanjangan dari tb_pengaturan")]
+    AmbilBiaya --> CekBiayaAdmin{"Biaya Administrasi > 0 ?"}
     
-    CekBiayaAdmin -- Ya --> JalurBayarPerpanjang{Pilih Jalur Pembayaran}
-    JalurBayarPerpanjang -- "Tunai" --> PetugasTerima[/Petugas Terima Biaya Tunai di Loket/]
-    JalurBayarPerpanjang -- "Payment Gateway" --> BukaPGPerpanjang[/Buka Modal QRIS: Siswa Bayar Administrasi/]
-    BukaPGPerpanjang --> VerifBayarPerpanjang[Konfirmasi Pembayaran Gateway Berhasil]
+    CekBiayaAdmin -- "Ya" --> JalurBayarPerpanjang{"Pilih Jalur Pembayaran"}
+    JalurBayarPerpanjang -- "Tunai" --> PetugasTerima[/"Petugas Terima Biaya Tunai di Loket"/]
+    JalurBayarPerpanjang -- "Payment Gateway" --> BukaPGPerpanjang[/"Buka Modal QRIS: Siswa Bayar Administrasi"/]
+    BukaPGPerpanjang --> VerifBayarPerpanjang["Konfirmasi Pembayaran Gateway Berhasil"]
     
-    CekBiayaAdmin -- Tidak (Gratis) --> ProsesUpdateMasa
+    CekBiayaAdmin -- "Tidak (Gratis)" --> ProsesUpdateMasa
     PetugasTerima --> ProsesUpdateMasa
     VerifBayarPerpanjang --> ProsesUpdateMasa
     
-    ProsesUpdateMasa[Hitung Tanggal Jatuh Tempo Baru = Tempo Lama + 7 Hari] --> UpdatePeminjamanDB[(UPDATE tb_peminjaman SET tgl_jatuh_tempo=baru, perpanjangan_count=1)]
-    UpdatePeminjamanDB --> TampilSuksesPerpanjang[/Tampilkan Notifikasi: Masa Pinjam Berhasil Diperpanjang +7 Hari/]
-    TampilSuksesPerpanjang --> EndPerpanjang([Selesai])
+    ProsesUpdateMasa["Hitung Tanggal Jatuh Tempo Baru = Tempo Lama + 7 Hari"] --> UpdatePeminjamanDB[("UPDATE tb_peminjaman SET tgl_jatuh_tempo=baru, perpanjangan_count=1")]
+    UpdatePeminjamanDB --> TampilSuksesPerpanjang[/"Tampilkan Notifikasi: Masa Pinjam Berhasil Diperpanjang +7 Hari"/]
+    TampilSuksesPerpanjang --> EndPerpanjang(["Selesai"])
 ```
 
 #### G. Flowchart 7: Pelaporan Eksekutif, Filter Periode & Pengesahan Kepala Sekolah
 ```mermaid
 flowchart TD
-    StartLaporan([Mulai Cetak Laporan]) --> BukaMenuLaporan[/Pilih Menu Laporan Eksekutif/]
-    BukaMenuLaporan --> PilihKategori{Pilih Jenis Laporan}
+    StartLaporan(["Mulai Cetak Laporan"]) --> BukaMenuLaporan[/"Pilih Menu Laporan Eksekutif"/]
+    BukaMenuLaporan --> PilihKategori{"Pilih Jenis Laporan"}
     
-    PilihKategori -- "Laporan Inventaris Buku" --> FilterBuku[/Pilih Filter: Semua Buku / Per Kategori Rak/]
-    FilterBuku --> QueryBuku[(SELECT * FROM tb_buku ORDER BY kd_buku)]
-    QueryBuku --> RenderBuku[/Tampilkan Tabel Lengkap Koleksi & Lokasi Rak Fisik/]
+    PilihKategori -- "Laporan Inventaris Buku" --> FilterBuku[/"Pilih Filter: Semua Buku / Per Kategori Rak"/]
+    FilterBuku --> QueryBuku[("SELECT * FROM tb_buku ORDER BY kd_buku")]
+    QueryBuku --> RenderBuku[/"Tampilkan Tabel Lengkap Koleksi & Lokasi Rak Fisik"/]
     RenderBuku --> CetakDoc
     
-    PilihKategori -- "Laporan Peminjaman" --> FilterTglPinjam[/Input Rentang Tanggal: Tanggal Awal s.d. Tanggal Akhir/]
-    FilterTglPinjam --> QueryPinjam[(SELECT * FROM tb_peminjaman WHERE tgl_pinjam BETWEEN ? AND ?)]
-    QueryPinjam --> RenderPinjam[/Tampilkan Rekap Peminjaman Siswa/]
+    PilihKategori -- "Laporan Peminjaman" --> FilterTglPinjam[/"Input Rentang Tanggal: Tanggal Awal s.d. Tanggal Akhir"/]
+    FilterTglPinjam --> QueryPinjam[("SELECT * FROM tb_peminjaman WHERE tgl_pinjam BETWEEN ? AND ?")]
+    QueryPinjam --> RenderPinjam[/"Tampilkan Rekap Peminjaman Siswa"/]
     RenderPinjam --> CetakDoc
 
-    PilihKategori -- "Laporan Pengembalian & Kas Denda" --> FilterTglKembali[/Input Rentang Tanggal Pengembalian/]
-    FilterTglKembali --> QueryKembali[(SELECT * FROM tb_pengembalian WHERE tgl_kembali BETWEEN ? AND ?)]
-    QueryKembali --> HitungTotalKas[Hitung Akumulasi Total Penerimaan Kas Denda]
-    HitungTotalKas --> RenderKembali[/Tampilkan Rekap Pengembalian & Total Denda Terkumpul/]
+    PilihKategori -- "Laporan Pengembalian & Kas Denda" --> FilterTglKembali[/"Input Rentang Tanggal Pengembalian"/]
+    FilterTglKembali --> QueryKembali[("SELECT * FROM tb_pengembalian WHERE tgl_kembali BETWEEN ? AND ?")]
+    QueryKembali --> HitungTotalKas["Hitung Akumulasi Total Penerimaan Kas Denda"]
+    HitungTotalKas --> RenderKembali[/"Tampilkan Rekap Pengembalian & Total Denda Terkumpul"/]
     RenderKembali --> CetakDoc
 
-    CetakDoc[/Klik Tombol 'Cetak Dokumen Resmi' / 'Export PDF'/] --> AutoInjectKop[Sistem Menyematkan Kop Resmi SMA Muhammadiyah 1 Pekalongan]
-    AutoInjectKop --> AutoInjectTTD[Sistem Menyematkan Titimangsa Pekalongan & Tanda Tangan Digital Kepala Sekolah]
-    AutoInjectTTD --> DialogPrint[/Buka Jendela Dialog Cetak Printer / Simpan PDF Browser/]
-    DialogPrint --> SelesaiLaporan([Selesai & Laporan Sah Terbit])
+    CetakDoc[/"Klik Tombol Cetak Dokumen Resmi / Export PDF"/] --> AutoInjectKop["Sistem Menyematkan Kop Resmi SMA Muhammadiyah 1 Pekalongan"]
+    AutoInjectKop --> AutoInjectTTD["Sistem Menyematkan Titimangsa Pekalongan & Tanda Tangan Digital Kepala Sekolah"]
+    AutoInjectTTD --> DialogPrint[/"Buka Jendela Dialog Cetak Printer / Simpan PDF Browser"/]
+    DialogPrint --> SelesaiLaporan(["Selesai & Laporan Sah Terbit"])
 ```
 
 ---
