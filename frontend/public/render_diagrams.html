@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Render Diagram Skripsi</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 30px;
+      background-color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 90vh;
+    }
+    .diagram-container {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+      width: 90%;
+      max-width: 1100px;
+      text-align: center;
+    }
+    .diagram-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    .diagram-subtitle {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+    svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="diagram-container">
+    <div id="diagram-title" class="diagram-title">Diagram Arsitektur Sistem</div>
+    <div id="diagram-subtitle" class="diagram-subtitle">Sistem Informasi Perpustakaan SMA Muhammadiyah 1 Pekalongan</div>
+    <div id="mermaid-target"></div>
+  </div>
+
+  <script>
+    const diagrams = {
+      // 1. Flowchart ASI Swimlane
+      'asi': {
+        title: 'Flowchart Aliran Sistem Informasi (ASI) Swimlane 4 Jalur Wewenang',
+        sub: 'Pemisahan wewenang antara Siswa/Anggota, Petugas Sirkulasi Loket, Kepala Sekolah, dan Gateway QRIS',
+        code: `flowchart LR
+    subgraph Lane_Siswa ["1. Siswa / Anggota Perpustakaan"]
+        S_Start(["Mulai"]) --> S_Pilih["Pilih Buku dari Katalog / Rak"]
+        S_Pilih --> S_Scan["Serahkan KTA Digital / Barcode ke Loket"]
+        S_Scan --> S_Terima["Terima Buku & Bukti Pinjam"]
+        S_Terima --> S_Baca["Pemanfaatan Bahan Pustaka"]
+        S_Baca --> S_Kembali["Kembalikan Buku Fisik ke Loket"]
+        S_Kembali --> S_CekDenda{"Ada Denda Keterlambatan?"}
+        S_CekDenda -- "Ya" --> S_BayarQRIS["Scan QRIS lupayyy Konter via HP"]
+        S_CekDenda -- "Tidak" --> S_Selesai(["Selesai"])
+        S_BayarQRIS --> S_Kwitansi["Terima Kwitansi Resmi Lunas"]
+        S_Kwitansi --> S_Selesai
+    end
+
+    subgraph Lane_Petugas ["2. Petugas Sirkulasi Loket"]
+        P_Input["Input Peminjaman di Sistem Web"]
+        P_Validasi{"Validasi Kuota 2 Buku & Stok?"}
+        P_PotongStok[("Update tb_buku: Kurangi Stok -1")]
+        P_Periksa["Periksa Fisik Buku & Tanggal Tempo"]
+        P_HitungDenda[("Hitung Denda Otomatis via tb_pengaturan")]
+        P_CetakKwitansi["Cetak Kwitansi Denda Loket"]
+        P_PulihkanStok[("Update tb_buku: Tambah Stok +1")]
+    end
+
+    subgraph Lane_Kepsek ["3. Kepala Sekolah & Kepala Perpus"]
+        K_Audit["Supervisi Mutu Sirkulasi & Literasi"]
+        K_Laporan["Tinjau Laporan Inventaris & Kas Denda"]
+        K_Sahkan["Pengesahan Laporan Bertanda Tangan Sah"]
+    end
+
+    subgraph Lane_Gateway ["4. Payment Gateway QRIS"]
+        GW_Invoice["Penerbitan Dynamic Invoice QRIS"]
+        GW_Detect["Auto-Detection Settlement Bank Real-Time"]
+        GW_UpdateDB[("UPDATE Database: status_denda=Lunas")]
+    end
+
+    S_Scan --> P_Input
+    P_Input --> P_Validasi
+    P_Validasi -- "Valid" --> P_PotongStok
+    P_PotongStok --> S_Terima
+    S_Kembali --> P_Periksa
+    P_Periksa --> P_HitungDenda
+    P_HitungDenda --> S_CekDenda
+    S_BayarQRIS --> GW_Invoice
+    GW_Invoice --> GW_Detect
+    GW_Detect --> GW_UpdateDB
+    GW_UpdateDB --> P_CetakKwitansi
+    P_CetakKwitansi --> S_Kwitansi
+    GW_UpdateDB --> P_PulihkanStok
+    P_PotongStok -.-> K_Audit
+    GW_UpdateDB -.-> K_Laporan
+    K_Laporan --> K_Sahkan`
+      },
+
+      // 2. Activity Flowchart Sirkulasi
+      'activity': {
+        title: 'Activity Flowchart Siklus Peminjaman & Pengembalian Buku End-to-End',
+        sub: 'Alur aktivitas logika sistem dari validasi kuota 2 buku, pemotongan stok, denda dinamis, hingga pemulihan stok',
+        code: `flowchart TD
+    StartPinjam(["Mulai Peminjaman"]) --> PilihBuku["Siswa Memilih Buku di Katalog / Rak"]
+    PilihBuku --> CekStok{"Cek Stok Fisik Buku > 0?"}
+    
+    CekStok -- "Tidak" --> ErrStok["Tampilkan Peringatan: Stok Buku Sedang Kosong"]
+    ErrStok --> BatalPinjam(["Transaksi Dibatalkan"])
+    
+    CekStok -- "Ya" --> CekKuota{"Cek Kuota Siswa < 2 Buku Aktif?"}
+    CekKuota -- "Tidak" --> ErrKuota["Tolak: Kuota Maksimal 2 Buku Tercapai"]
+    ErrKuota --> BatalPinjam
+    
+    CekKuota -- "Ya" --> GeneratePJ["Generate Kode Transaksi Otomatis PJxxx"]
+    GeneratePJ --> HitungTempo["Hitung Tanggal Jatuh Tempo (Hari Pinjam + 7 Hari)"]
+    HitungTempo --> SimpanPinjam[("Simpan Record ke tb_peminjaman")]
+    SimpanPinjam --> KurangStok[("Update tb_buku: Kurangi Stok Fisik -1")]
+    KurangStok --> MasaPinjam["Buku Dalam Masa Peminjaman Siswa"]
+    
+    MasaPinjam --> PengembalianBuku["Siswa Menyerahkan Buku ke Loket Pengembalian"]
+    PengembalianBuku --> CekTempo{"Tanggal Pengembalian > Tanggal Jatuh Tempo?"}
+    
+    CekTempo -- "Tidak Terlambat" --> DendaNol["Set Denda = Rp 0 & Status Tanpa Denda"]
+    DendaNol --> ProsesSimpanKembali
+    
+    CekTempo -- "Terlambat" --> HitungHari["Hitung Selisih Hari Keterlambatan"]
+    HitungHari --> HitungTotal["Total Denda = Selisih Hari x Tarif Dinamis tb_pengaturan"]
+    HitungTotal --> MetodeBayar{"Pilih Metode Pembayaran"}
+    
+    MetodeBayar -- "Tunai Loket" --> BayarTunai["Petugas Terima Pembayaran Tunai"]
+    BayarTunai --> ProsesSimpanKembali
+    
+    MetodeBayar -- "QRIS Digital" --> ScanQRIS["Siswa Scan Barcode QRIS lupayyy Konter via HP"]
+    ScanQRIS --> VerifGateway["Sistem Gateway Memverifikasi Lunas Otomatis"]
+    VerifGateway --> ProsesSimpanKembali
+    
+    ProsesSimpanKembali[("Simpan ke tb_pengembalian")] --> UpdatePinjam[("Update tb_peminjaman: status = Dikembalikan")]
+    UpdatePinjam --> TambahStok[("Update tb_buku: Pulihkan Stok Fisik +1")]
+    TambahStok --> CetakKwitansi["Cetak Struk Kwitansi Resmi Pelunasan"]
+    CetakKwitansi --> SelesaiSirkulasi(["Selesai"])`
+      },
+
+      // 3. DFD Level 0 Konteks
+      'dfd': {
+        title: 'Data Flow Diagram (DFD) Level 0 / Diagram Konteks Sistem Perpustakaan',
+        sub: 'Batas sistem dan arus pertukaran data antara Sistem Informasi Perpustakaan dengan seluruh entitas luar',
+        code: `flowchart LR
+    Siswa["👤 Siswa / Anggota"]
+    Petugas["👮 Petugas Sirkulasi"]
+    KepalaPerpus["👩‍💼 Kepala Perpustakaan"]
+    KepalaSekolah["👨‍💼 Kepala Sekolah"]
+    PaymentGW["💳 Payment Gateway QRIS"]
+
+    Sistem(("SISTEM INFORMASI PERPUSTAKAAN<br/>SMA MUHAMMADIYAH 1 PEKALONGAN"))
+
+    Siswa -->|"1. Data Pendaftaran Anggota<br/>2. Request Pinjam Mandiri<br/>3. Pembayaran Denda QRIS"| Sistem
+    Sistem -->|"1. KTA Digital Ber-Barcode<br/>2. Info Masa Pinjam<br/>3. Tagihan Denda & Barcode QRIS"| Siswa
+
+    Petugas -->|"1. Input Sirkulasi Front-Desk<br/>2. Validasi Pengembalian Buku Fisik<br/>3. Penerimaan Denda Tunai"| Sistem
+    Sistem -->|"1. Antrean Sirkulasi Aktif<br/>2. Label Barcode Buku Code 128<br/>3. Cetak Kwitansi Denda Resmi"| Petugas
+
+    KepalaPerpus -->|"1. Input Master Koleksi Buku<br/>2. Pengaturan Lokasi Rak Fisik<br/>3. Konfigurasi Tarif Denda & Staf"| Sistem
+    Sistem -->|"1. Statistik Koleksi & Rak<br/>2. Rekapitulasi Sirkulasi<br/>3. Laporan Inventaris Buku"| KepalaPerpus
+
+    KepalaSekolah -->|"1. Permintaan Audit Periode Laporan"| Sistem
+    Sistem -->|"1. Laporan Sirkulasi & Kas Denda Sah<br/>2. Dokumen Ber-KOP Resmi & Bertanda Tangan"| KepalaSekolah
+
+    Sistem -->|"1. Request Generate Invoice Tagihan"| PaymentGW
+    PaymentGW -->|"1. Notifikasi Callback Settlement (LUNAS)"| Sistem`
+      },
+
+      // 4. Use Case Diagram
+      'usecase': {
+        title: 'Use Case Diagram UML Sistem Perpustakaan (14 Use Cases)',
+        sub: 'Pemetaan 14 use case fungsional ke dalam 4 aktor utama dengan relasi include dan extend',
+        code: `flowchart LR
+    subgraph Aktor ["Aktor Pengguna"]
+        A_Siswa["👤 Siswa / Anggota"]
+        A_Petugas["👮 Petugas Sirkulasi"]
+        A_Admin["👩‍💼 Kepala Perpustakaan"]
+        A_Kepsek["👨‍💼 Kepala Sekolah"]
+        A_PG["💳 Payment Gateway Provider"]
+    end
+
+    subgraph Use_Cases ["Use Cases Sistem Perpustakaan"]
+        UC1(["UC01: Login Multi-Role & Registrasi"])
+        UC2(["UC02: Pencarian & Katalog Rak Buku"])
+        UC3(["UC03: Peminjaman Buku Mandiri (Maks 2)"])
+        UC4(["UC04: Cetak KTA Digital Barcode NISN"])
+        UC5(["UC05: Pembayaran Digital QRIS Gateway"])
+        UC6(["UC06: Pelayanan Front-Desk Loket"])
+        UC7(["UC07: Pengembalian Buku & Cek Fisik"])
+        UC8(["UC08: Kalkulasi Denda Keterlambatan"])
+        UC9(["UC09: Cetak Kwitansi Denda Resmi"])
+        UC10(["UC10: CRUD Master Koleksi Buku"])
+        UC11(["UC11: Cetak Label Barcode Rak Buku"])
+        UC12(["UC12: Konfigurasi Tarif Denda Global"])
+        UC13(["UC13: Manajemen Akun Staf (RBAC)"])
+        UC14(["UC14: Audit Mutu & Pengesahan Laporan"])
+    end
+
+    A_Siswa --> UC1
+    A_Siswa --> UC2
+    A_Siswa --> UC3
+    A_Siswa --> UC4
+    A_Siswa --> UC5
+
+    A_Petugas --> UC1
+    A_Petugas --> UC2
+    A_Petugas --> UC6
+    A_Petugas --> UC7
+    A_Petugas --> UC8
+    A_Petugas --> UC9
+    A_Petugas --> UC11
+
+    A_Admin --> UC1
+    A_Admin --> UC2
+    A_Admin --> UC10
+    A_Admin --> UC11
+    A_Admin --> UC12
+    A_Admin --> UC13
+    A_Admin --> UC14
+
+    A_Kepsek --> UC1
+    A_Kepsek --> UC14
+
+    UC7 -.->|"[include]"| UC8
+    UC8 -.->|"[extend]"| UC5
+    UC8 -.->|"[extend]"| UC9
+    A_PG --> UC5`
+      },
+
+      // 5. ERD 3NF
+      'erd': {
+        title: 'Entity Relationship Diagram (ERD) Normalisasi 3NF Database skripsi_perpus',
+        sub: 'Skema basis data relasional 6 tabel utama dengan Foreign Key aktif di engine MySQL InnoDB',
+        code: `erDiagram
+    tb_anggota ||--o{ tb_peminjaman : "memiliki_riwayat (1:N)"
+    tb_petugas ||--o{ tb_peminjaman : "mencatat_pinjam (1:N)"
+    tb_buku ||--o{ tb_peminjaman : "item_pinjam (1:N)"
+    tb_peminjaman ||--o| tb_pengembalian : "diselesaikan_pada (1:1)"
+    tb_petugas ||--o{ tb_pengembalian : "menerima_kembali (1:N)"
+    tb_petugas ||--o{ tb_pengaturan : "mengonfigurasi (1:N)"
+
+    tb_anggota {
+        varchar nisn PK "Nomor Induk Siswa Nasional"
+        varchar nama_lengkap "Nama Siswa"
+        varchar kelas "Rombongan Belajar"
+        mediumtext foto "Foto Profil Siswa"
+        enum jenis_kelamin "L / P"
+        varchar password "Hash Bcrypt"
+    }
+
+    tb_petugas {
+        varchar username PK "Username Staf"
+        varchar nama_petugas "Nama Lengkap"
+        varchar role "admin, petugas2, kepsek"
+        varchar jabatan "Jabatan Struktural"
+        varchar password "Hash Bcrypt"
+    }
+
+    tb_buku {
+        varchar kd_buku PK "Kode Koleksi Buku"
+        varchar judul_buku "Judul Lengkap"
+        varchar pengarang "Penulis"
+        varchar penerbit "Penerbit"
+        varchar lokasi_rak "Rak A-01, B-01, dll"
+        int stok "Stok Fisik Tersedia"
+    }
+
+    tb_peminjaman {
+        varchar kd_peminjaman PK "Nomor Transaksi PJxxx"
+        varchar kd_buku FK "Relasi ke tb_buku"
+        varchar nisn FK "Relasi ke tb_anggota"
+        date tgl_peminjaman "Tanggal Mulai Pinjam"
+        date tgl_jatuh_tempo "Batas Waktu Pinjam"
+        enum status "Dipinjam, Dikembalikan, Terlambat"
+        int perpanjangan_count "Frekuensi Perpanjang (Maks 1x)"
+    }
+
+    tb_pengembalian {
+        varchar kd_pengembalian PK "Nomor Pengembalian KBxxx"
+        varchar kd_peminjaman FK "Relasi ke tb_peminjaman"
+        date tgl_pengembalian "Tanggal Buku Diterima"
+        decimal denda "Total Denda Keterlambatan"
+        enum status_denda "Lunas, Tertunggak, Tanpa Denda"
+        varchar metode_pembayaran "Tunai Loket / QRIS"
+        varchar id_transaksi_gateway "ID Transaksi Gateway"
+    }
+
+    tb_pengaturan {
+        int id PK "Auto Increment"
+        varchar kunci UK "tarif_denda, durasi_pinjam, qris"
+        text nilai "Nilai Parameter"
+        varchar keterangan "Deskripsi Parameter"
+    } `
+      }
+    };
+
+    const params = new URLSearchParams(window.location.search);
+    const key = params.get('type') || 'asi';
+    const current = diagrams[key] || diagrams['asi'];
+
+    document.getElementById('diagram-title').innerText = current.title;
+    document.getElementById('diagram-subtitle').innerText = current.sub;
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      flowchart: { curve: 'basis', htmlLabels: true },
+      securityLevel: 'loose'
+    });
+
+    const target = document.getElementById('mermaid-target');
+    mermaid.render('renderedDiagram', current.code).then(({ svg }) => {
+      target.innerHTML = svg;
+    });
+  </script>
+</body>
+</html>

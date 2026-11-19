@@ -9,12 +9,22 @@ import LaporanPage from './pages/LaporanPage';
 import PengaturanPage from './pages/PengaturanPage';
 import LoginPage from './pages/LoginPage';
 import SiswaPortal from './pages/SiswaPortal';
+import PaymentGatewayModal from './components/PaymentGatewayModal';
 import { api } from './api/axios';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 export default function App() {
-  // User Session State: Default NULL agar selalu mewajibkan LOGIN terlebih dahulu saat pertama kali dibuka
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const paramRole = urlParams.get('role');
+  const paramTab = urlParams.get('tab');
+  const paramModal = urlParams.get('modal');
+
+  // User Session State: Default NULL atau dari URL param untuk keperluan preview/screenshot
   const [currentUser, setCurrentUser] = useState(() => {
+    if (paramRole === 'admin') return { username: 'admin', role: 'admin', roleCode: 'kepala_perpus', nama: 'Siti Farida, A.Md' };
+    if (paramRole === 'petugas') return { username: 'petugas2', role: 'petugas2', roleCode: 'petugas_sirkulasi', nama: 'Samsul Arifin, S.Pd' };
+    if (paramRole === 'kepsek') return { username: 'kepsek', role: 'kepsek', roleCode: 'kepala_sekolah', nama: 'Ahmad Marzuki, S.Pd.I' };
+    if (paramRole === 'siswa') return { type: 'siswa', nisn: '2024001', nama: 'Ahmad Fauzi (XI IPA 1)', kelas: 'XI IPA 1' };
     try {
       const saved = sessionStorage.getItem('perpus_active_user');
       return saved ? JSON.parse(saved) : null;
@@ -23,7 +33,13 @@ export default function App() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (paramTab) return paramTab;
+    if (paramRole === 'kepsek') return 'laporan';
+    if (paramRole === 'petugas' && !paramModal) return 'peminjaman';
+    return 'dashboard';
+  });
+  const [demoGatewayOpen, setDemoGatewayOpen] = useState(paramModal === 'qris');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [preselectedLoanCode, setPreselectedLoanCode] = useState(null);
@@ -202,6 +218,23 @@ export default function App() {
             <X className="w-4 h-4" />
           </button>
         </div>
+      )}
+      {demoGatewayOpen && (
+        <PaymentGatewayModal
+          isOpen={true}
+          onClose={() => setDemoGatewayOpen(false)}
+          data={{
+            kd_pengembalian: 'KB001',
+            kd_peminjaman: 'PJ001',
+            denda: 3000,
+            nama_anggota: 'Ahmad Fauzi (XI IPA 1)',
+            judul_transaksi: 'Pembayaran Denda Perpustakaan'
+          }}
+          onSuccess={() => {
+            showNotification('Pembayaran QRIS berhasil!', 'success');
+            setDemoGatewayOpen(false);
+          }}
+        />
       )}
     </div>
   );
