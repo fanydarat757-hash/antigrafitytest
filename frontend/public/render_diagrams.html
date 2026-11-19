@@ -2,51 +2,111 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Render Diagram Skripsi</title>
+  <title>Render Diagram Skripsi High-Definition</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
-      padding: 30px;
-      background-color: #ffffff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 40px;
+      background-color: #f8fafc;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      min-height: 90vh;
+      justify-content: flex-start;
+      min-width: 1900px;
+      min-height: 100vh;
     }
-    .diagram-container {
+    .diagram-card {
       background: #ffffff;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-      border: 1px solid #e2e8f0;
-      width: 90%;
-      max-width: 1100px;
+      padding: 36px 48px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      border: 2px solid #cbd5e1;
+      display: inline-block;
       text-align: center;
+      margin: auto;
+    }
+    .header-box {
+      margin-bottom: 28px;
+      padding-bottom: 18px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      background-color: #0284c7;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-radius: 9999px;
+      margin-bottom: 10px;
     }
     .diagram-title {
-      font-size: 20px;
-      font-weight: 800;
+      font-size: 26px;
+      font-weight: 900;
       color: #0f172a;
-      margin-bottom: 6px;
+      margin: 0 0 8px 0;
+      letter-spacing: -0.5px;
     }
     .diagram-subtitle {
-      font-size: 13px;
-      color: #64748b;
-      margin-bottom: 24px;
+      font-size: 15px;
+      font-weight: 500;
+      color: #475569;
+      margin: 0;
     }
+    #mermaid-target {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px 0;
+    }
+    /* Global Mermaid High-Resolution Typography & Contrast Overrides */
     svg {
-      max-width: 100% !important;
-      height: auto !important;
+      font-family: 'Segoe UI', sans-serif !important;
+    }
+    .node text, .label text {
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      fill: #0f172a !important;
+    }
+    .cluster-label text, .cluster text {
+      font-size: 18px !important;
+      font-weight: 800 !important;
+      fill: #0284c7 !important;
+    }
+    .edgeLabel text {
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      fill: #334155 !important;
+      background: #ffffff !important;
+    }
+    .node rect, .node circle, .node polygon {
+      stroke-width: 2px !important;
+      stroke: #334155 !important;
+    }
+    .edgePath path {
+      stroke: #475569 !important;
+      stroke-width: 2.2px !important;
+    }
+    marker {
+      fill: #475569 !important;
+      stroke: #475569 !important;
     }
   </style>
 </head>
 <body>
-  <div class="diagram-container">
-    <div id="diagram-title" class="diagram-title">Diagram Arsitektur Sistem</div>
-    <div id="diagram-subtitle" class="diagram-subtitle">Sistem Informasi Perpustakaan SMA Muhammadiyah 1 Pekalongan</div>
+  <div class="diagram-card">
+    <div class="header-box">
+      <div id="diagram-badge" class="badge">Dokumentasi Skripsi & Tugas Akhir</div>
+      <h1 id="diagram-title" class="diagram-title">Diagram Sistem</h1>
+      <p id="diagram-subtitle" class="diagram-subtitle">Sistem Informasi Perpustakaan SMA Muhammadiyah 1 Pekalongan</p>
+    </div>
     <div id="mermaid-target"></div>
   </div>
 
@@ -54,66 +114,68 @@
     const diagrams = {
       // 1. Flowchart ASI Swimlane
       'asi': {
-        title: 'Flowchart Aliran Sistem Informasi (ASI) Swimlane 4 Jalur Wewenang',
-        sub: 'Pemisahan wewenang antara Siswa/Anggota, Petugas Sirkulasi Loket, Kepala Sekolah, dan Gateway QRIS',
+        badge: 'FLOWCHART ASI SWIMLANE 4 JALUR',
+        title: 'Aliran Sistem Informasi (ASI) Swimlane 4 Jalur Wewenang',
+        sub: 'Pemisahan wewenang antara Siswa/Anggota, Petugas Sirkulasi Loket, Kepala Sekolah/Perpus, dan Payment Gateway QRIS',
         code: `flowchart LR
     subgraph Lane_Siswa ["1. Siswa / Anggota Perpustakaan"]
-        S_Start(["Mulai"]) --> S_Pilih["Pilih Buku dari Katalog / Rak"]
-        S_Pilih --> S_Scan["Serahkan KTA Digital / Barcode ke Loket"]
-        S_Scan --> S_Terima["Terima Buku & Bukti Pinjam"]
-        S_Terima --> S_Baca["Pemanfaatan Bahan Pustaka"]
-        S_Baca --> S_Kembali["Kembalikan Buku Fisik ke Loket"]
-        S_Kembali --> S_CekDenda{"Ada Denda Keterlambatan?"}
-        S_CekDenda -- "Ya" --> S_BayarQRIS["Scan QRIS lupayyy Konter via HP"]
-        S_CekDenda -- "Tidak" --> S_Selesai(["Selesai"])
-        S_BayarQRIS --> S_Kwitansi["Terima Kwitansi Resmi Lunas"]
-        S_Kwitansi --> S_Selesai
+        S1(["Mulai"]) --> S2["Pilih Buku dari Katalog / Rak"]
+        S2 --> S3["Tunjukkan KTA Barcode ke Loket"]
+        S3 --> S4["Terima Buku & Informasi Jatuh Tempo"]
+        S4 --> S5["Masa Peminjaman Buku (Maks 7 Hari)"]
+        S5 --> S6["Serahkan Buku Fisik ke Loket Kembali"]
+        S6 --> S7{"Terkena Denda Keterlambatan?"}
+        S7 -- "Ya" --> S8["Scan Barcode QRIS lupayyy Konter via HP"]
+        S7 -- "Tidak" --> S9(["Selesai"])
+        S8 --> S10["Terima Kwitansi Resmi Lunas"]
+        S10 --> S9
     end
 
     subgraph Lane_Petugas ["2. Petugas Sirkulasi Loket"]
-        P_Input["Input Peminjaman di Sistem Web"]
-        P_Validasi{"Validasi Kuota 2 Buku & Stok?"}
-        P_PotongStok[("Update tb_buku: Kurangi Stok -1")]
-        P_Periksa["Periksa Fisik Buku & Tanggal Tempo"]
-        P_HitungDenda[("Hitung Denda Otomatis via tb_pengaturan")]
-        P_CetakKwitansi["Cetak Kwitansi Denda Loket"]
-        P_PulihkanStok[("Update tb_buku: Tambah Stok +1")]
+        P1["Input Data Pinjam di Sistem Web"]
+        P2{"Validasi Kuota < 2 & Stok > 0?"}
+        P3[("Potong Stok tb_buku (-1)")]
+        P4["Periksa Fisik Buku & Tanggal Kembali"]
+        P5[("Kalkulasi Denda via tb_pengaturan")]
+        P6["Cetak Struk Kwitansi Denda Loket"]
+        P7[("Pulihkan Stok tb_buku (+1)")]
     end
 
     subgraph Lane_Kepsek ["3. Kepala Sekolah & Kepala Perpus"]
-        K_Audit["Supervisi Mutu Sirkulasi & Literasi"]
-        K_Laporan["Tinjau Laporan Inventaris & Kas Denda"]
-        K_Sahkan["Pengesahan Laporan Bertanda Tangan Sah"]
+        K1["Supervisi Mutu Sirkulasi & Literasi"]
+        K2["Tinjau Laporan Inventaris & Kas Denda"]
+        K3["Pengesahan Laporan Bertanda Tangan Sah"]
     end
 
     subgraph Lane_Gateway ["4. Payment Gateway QRIS"]
-        GW_Invoice["Penerbitan Dynamic Invoice QRIS"]
-        GW_Detect["Auto-Detection Settlement Bank Real-Time"]
-        GW_UpdateDB[("UPDATE Database: status_denda=Lunas")]
+        G1["Generate Dynamic Invoice Tagihan"]
+        G2["Deteksi Notifikasi Settlement Bank Real-Time"]
+        G3[("UPDATE Database: status_denda=Lunas")]
     end
 
-    S_Scan --> P_Input
-    P_Input --> P_Validasi
-    P_Validasi -- "Valid" --> P_PotongStok
-    P_PotongStok --> S_Terima
-    S_Kembali --> P_Periksa
-    P_Periksa --> P_HitungDenda
-    P_HitungDenda --> S_CekDenda
-    S_BayarQRIS --> GW_Invoice
-    GW_Invoice --> GW_Detect
-    GW_Detect --> GW_UpdateDB
-    GW_UpdateDB --> P_CetakKwitansi
-    P_CetakKwitansi --> S_Kwitansi
-    GW_UpdateDB --> P_PulihkanStok
-    P_PotongStok -.-> K_Audit
-    GW_UpdateDB -.-> K_Laporan
-    K_Laporan --> K_Sahkan`
+    S3 --> P1
+    P1 --> P2
+    P2 -- "Ya (Valid)" --> P3
+    P3 --> S4
+    S6 --> P4
+    P4 --> P5
+    P5 --> S7
+    S8 --> G1
+    G1 --> G2
+    G2 --> G3
+    G3 --> P6
+    P6 --> S10
+    G3 --> P7
+    P3 -.-> K1
+    G3 -.-> K2
+    K2 --> K3`
       },
 
       // 2. Activity Flowchart Sirkulasi
       'activity': {
-        title: 'Activity Flowchart Siklus Peminjaman & Pengembalian Buku End-to-End',
-        sub: 'Alur aktivitas logika sistem dari validasi kuota 2 buku, pemotongan stok, denda dinamis, hingga pemulihan stok',
+        badge: 'ACTIVITY FLOWCHART END-TO-END',
+        title: 'Activity Flowchart Siklus Peminjaman & Pengembalian Buku',
+        sub: 'Alur aktivitas logika sistem mulai dari seleksi buku, verifikasi kuota 2 buku, pemotongan stok, denda dinamis, hingga pemulihan stok',
         code: `flowchart TD
     StartPinjam(["Mulai Peminjaman"]) --> PilihBuku["Siswa Memilih Buku di Katalog / Rak"]
     PilihBuku --> CekStok{"Cek Stok Fisik Buku > 0?"}
@@ -135,20 +197,20 @@
     PengembalianBuku --> CekTempo{"Tanggal Pengembalian > Tanggal Jatuh Tempo?"}
     
     CekTempo -- "Tidak Terlambat" --> DendaNol["Set Denda = Rp 0 & Status Tanpa Denda"]
-    DendaNol --> ProsesSimpanKembali
+    DendaNol --> SimpanKembali
     
     CekTempo -- "Terlambat" --> HitungHari["Hitung Selisih Hari Keterlambatan"]
     HitungHari --> HitungTotal["Total Denda = Selisih Hari x Tarif Dinamis tb_pengaturan"]
     HitungTotal --> MetodeBayar{"Pilih Metode Pembayaran"}
     
-    MetodeBayar -- "Tunai Loket" --> BayarTunai["Petugas Terima Pembayaran Tunai"]
-    BayarTunai --> ProsesSimpanKembali
+    MetodeBayar -- "Tunai Loket" --> BayarTunai["Petugas Terima Uang Tunai di Loket"]
+    BayarTunai --> SimpanKembali
     
     MetodeBayar -- "QRIS Digital" --> ScanQRIS["Siswa Scan Barcode QRIS lupayyy Konter via HP"]
     ScanQRIS --> VerifGateway["Sistem Gateway Memverifikasi Lunas Otomatis"]
-    VerifGateway --> ProsesSimpanKembali
+    VerifGateway --> SimpanKembali
     
-    ProsesSimpanKembali[("Simpan ke tb_pengembalian")] --> UpdatePinjam[("Update tb_peminjaman: status = Dikembalikan")]
+    SimpanKembali[("Simpan ke tb_pengembalian")] --> UpdatePinjam[("Update tb_peminjaman: status = Dikembalikan")]
     UpdatePinjam --> TambahStok[("Update tb_buku: Pulihkan Stok Fisik +1")]
     TambahStok --> CetakKwitansi["Cetak Struk Kwitansi Resmi Pelunasan"]
     CetakKwitansi --> SelesaiSirkulasi(["Selesai"])`
@@ -156,7 +218,8 @@
 
       // 3. DFD Level 0 Konteks
       'dfd': {
-        title: 'Data Flow Diagram (DFD) Level 0 / Diagram Konteks Sistem Perpustakaan',
+        badge: 'DATA FLOW DIAGRAM (DFD) LEVEL 0',
+        title: 'Diagram Konteks (Context Diagram) Sistem Informasi Perpustakaan',
         sub: 'Batas sistem dan arus pertukaran data antara Sistem Informasi Perpustakaan dengan seluruh entitas luar',
         code: `flowchart LR
     Siswa["👤 Siswa / Anggota"]
@@ -167,26 +230,27 @@
 
     Sistem(("SISTEM INFORMASI PERPUSTAKAAN<br/>SMA MUHAMMADIYAH 1 PEKALONGAN"))
 
-    Siswa -->|"1. Data Pendaftaran Anggota<br/>2. Request Pinjam Mandiri<br/>3. Pembayaran Denda QRIS"| Sistem
-    Sistem -->|"1. KTA Digital Ber-Barcode<br/>2. Info Masa Pinjam<br/>3. Tagihan Denda & Barcode QRIS"| Siswa
+    Siswa -->|"1. Formulir Pendaftaran Siswa<br/>2. Request Pinjam Buku Mandiri<br/>3. Pembayaran Denda QRIS"| Sistem
+    Sistem -->|"1. Kartu KTA Digital Barcode<br/>2. Status Pinjaman & Tanggal Tempo<br/>3. Tagihan Denda & Barcode QRIS"| Siswa
 
-    Petugas -->|"1. Input Sirkulasi Front-Desk<br/>2. Validasi Pengembalian Buku Fisik<br/>3. Penerimaan Denda Tunai"| Sistem
-    Sistem -->|"1. Antrean Sirkulasi Aktif<br/>2. Label Barcode Buku Code 128<br/>3. Cetak Kwitansi Denda Resmi"| Petugas
+    Petugas -->|"1. Pencatatan Sirkulasi Loket<br/>2. Verifikasi Pengembalian Fisik Buku<br/>3. Input Penerimaan Denda Tunai"| Sistem
+    Sistem -->|"1. Daftar Antrean Sirkulasi Aktif<br/>2. Cetak Label Barcode Rak Code 128<br/>3. Struk Kwitansi Resmi Denda"| Petugas
 
-    KepalaPerpus -->|"1. Input Master Koleksi Buku<br/>2. Pengaturan Lokasi Rak Fisik<br/>3. Konfigurasi Tarif Denda & Staf"| Sistem
-    Sistem -->|"1. Statistik Koleksi & Rak<br/>2. Rekapitulasi Sirkulasi<br/>3. Laporan Inventaris Buku"| KepalaPerpus
+    KepalaPerpus -->|"1. Master Koleksi Buku & Rak<br/>2. Konfigurasi Tarif Denda & Staf"| Sistem
+    Sistem -->|"1. Statistik Koleksi & Stok Buku<br/>2. Laporan Inventaris Perpustakaan"| KepalaPerpus
 
-    KepalaSekolah -->|"1. Permintaan Audit Periode Laporan"| Sistem
-    Sistem -->|"1. Laporan Sirkulasi & Kas Denda Sah<br/>2. Dokumen Ber-KOP Resmi & Bertanda Tangan"| KepalaSekolah
+    KepalaSekolah -->|"1. Permintaan Filter Periode Audit"| Sistem
+    Sistem -->|"1. Rekapitulasi Sirkulasi & Kas Denda<br/>2. Laporan Sah Bertanda Tangan Digital"| KepalaSekolah
 
     Sistem -->|"1. Request Generate Invoice Tagihan"| PaymentGW
-    PaymentGW -->|"1. Notifikasi Callback Settlement (LUNAS)"| Sistem`
+    PaymentGW -->|"1. Notifikasi Callback Settlement Lunas"| Sistem`
       },
 
       // 4. Use Case Diagram
       'usecase': {
+        badge: 'USE CASE DIAGRAM UML',
         title: 'Use Case Diagram UML Sistem Perpustakaan (14 Use Cases)',
-        sub: 'Pemetaan 14 use case fungsional ke dalam 4 aktor utama dengan relasi include dan extend',
+        sub: 'Pemetaan 14 use case fungsional ke dalam 4 modul utama dengan kontrol akses berbasis peran (RBAC)',
         code: `flowchart LR
     subgraph Aktor ["Aktor Pengguna"]
         A_Siswa["👤 Siswa / Anggota"]
@@ -199,15 +263,15 @@
     subgraph Use_Cases ["Use Cases Sistem Perpustakaan"]
         UC1(["UC01: Login Multi-Role & Registrasi"])
         UC2(["UC02: Pencarian & Katalog Rak Buku"])
-        UC3(["UC03: Peminjaman Buku Mandiri (Maks 2)"])
-        UC4(["UC04: Cetak KTA Digital Barcode NISN"])
-        UC5(["UC05: Pembayaran Digital QRIS Gateway"])
+        UC3(["UC03: Peminjaman Mandiri (Maks 2)"])
+        UC4(["UC04: Cetak KTA Barcode NISN"])
+        UC5(["UC05: Bayar Denda QRIS Digital"])
         UC6(["UC06: Pelayanan Front-Desk Loket"])
         UC7(["UC07: Pengembalian Buku & Cek Fisik"])
         UC8(["UC08: Kalkulasi Denda Keterlambatan"])
         UC9(["UC09: Cetak Kwitansi Denda Resmi"])
         UC10(["UC10: CRUD Master Koleksi Buku"])
-        UC11(["UC11: Cetak Label Barcode Rak Buku"])
+        UC11(["UC11: Cetak Barcode Label Rak"])
         UC12(["UC12: Konfigurasi Tarif Denda Global"])
         UC13(["UC13: Manajemen Akun Staf (RBAC)"])
         UC14(["UC14: Audit Mutu & Pengesahan Laporan"])
@@ -246,7 +310,8 @@
 
       // 5. ERD 3NF
       'erd': {
-        title: 'Entity Relationship Diagram (ERD) Normalisasi 3NF Database skripsi_perpus',
+        badge: 'ENTITY RELATIONSHIP DIAGRAM (ERD)',
+        title: 'Entity Relationship Diagram (ERD) Normalisasi 3NF',
         sub: 'Skema basis data relasional 6 tabel utama dengan Foreign Key aktif di engine MySQL InnoDB',
         code: `erDiagram
     tb_anggota ||--o{ tb_peminjaman : "memiliki_riwayat (1:N)"
@@ -315,19 +380,36 @@
     const key = params.get('type') || 'asi';
     const current = diagrams[key] || diagrams['asi'];
 
+    document.getElementById('diagram-badge').innerText = current.badge;
     document.getElementById('diagram-title').innerText = current.title;
     document.getElementById('diagram-subtitle').innerText = current.sub;
 
     mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
-      flowchart: { curve: 'basis', htmlLabels: true },
+      themeVariables: {
+        fontSize: '16px',
+        fontFamily: 'Segoe UI, sans-serif',
+        primaryColor: '#e0f2fe',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#0284c7',
+        lineColor: '#475569',
+        secondaryColor: '#f1f5f9',
+        tertiaryColor: '#ffffff'
+      },
+      flowchart: {
+        curve: 'basis',
+        htmlLabels: true,
+        nodeSpacing: 50,
+        rankSpacing: 60
+      },
       securityLevel: 'loose'
     });
 
     const target = document.getElementById('mermaid-target');
     mermaid.render('renderedDiagram', current.code).then(({ svg }) => {
       target.innerHTML = svg;
+      document.body.classList.add('mermaid-ready');
     });
   </script>
 </body>
