@@ -16,7 +16,8 @@ import {
   Settings,
   CalendarPlus,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Download
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import PaymentGatewayModal from '../components/PaymentGatewayModal';
@@ -26,6 +27,7 @@ import { api, formatDateIndo } from '../api/axios';
 export default function PeminjamanPage({ showNotification, onNavigateToReturn, user }) {
   const roleCode = user?.roleCode || (user?.username === 'admin' ? 'kepala_perpus' : user?.username === 'kepsek' ? 'kepala_sekolah' : 'petugas_sirkulasi');
   const [list, setList] = useState([]);
+  const [allList, setAllList] = useState([]);
   const [bukuOptions, setBukuOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -48,6 +50,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
     nama_anggota: '',
     tgl_peminjaman: new Date().toISOString().split('T')[0],
     durasi_hari: 7,
+    dispensasi: false,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -101,11 +104,49 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
       if (res && res.data) {
         setList(res.data.data || []);
       }
+      // Ambil dataset lengkap untuk counter badge status
+      if (!search && !statusFilter) {
+        setAllList(res.data.data || []);
+      } else if (allList.length === 0) {
+        const fullRes = await api.getPeminjaman('', '');
+        if (fullRes?.data) setAllList(fullRes.data.data || []);
+      }
     } catch (err) {
       showNotification('Gagal memuat data peminjaman: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateOverdueDays = (tempoDateStr) => {
+    if (!tempoDateStr) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(tempoDateStr);
+    due.setHours(0, 0, 0, 0);
+    const diffTime = today - due;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  };
+
+  const handleExportCSV = () => {
+    if (!list || list.length === 0) {
+      showNotification('Tidak ada data peminjaman untuk diekspor.', 'error');
+      return;
+    }
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'No,Kode Pinjam,Nama Anggota,Kode Buku,Judul Buku,Tgl Pinjam,Jatuh Tempo,Status,Jumlah Perpanjangan\n';
+    list.forEach((row, idx) => {
+      csvContent += `${idx + 1},"${row.kd_peminjaman}","${row.nama_anggota}","${row.kd_buku}","${row.buku?.judul_buku || row.kd_buku}","${row.tgl_peminjaman}","${row.tgl_jatuh_tempo || '-'}","${row.status}",${row.perpanjangan_count || 0}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Sirkulasi_Peminjaman_SMA_Muhammadiyah_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification('Data peminjaman berhasil diekspor ke file CSV/Excel!', 'success');
   };
 
   const loadBukuOptions = async () => {
@@ -332,6 +373,16 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
         </div>
 
         <div className="flex items-center space-x-2 self-start sm:self-auto flex-wrap gap-y-2">
+          {/* Tombol Ekspor Data CSV/Excel */}
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-300 transition-all shadow-xs"
+            title="Unduh seluruh data sirkulasi peminjaman ke format file CSV / Excel"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-700" />
+            <span>📥 Unduh CSV / Excel</span>
+          </button>
+
           {/* Tombol Pintas: Edit Tarif Denda & Masa Pinjam */}
           <button
             onClick={handleOpenSettingsModal}
@@ -369,36 +420,55 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
           />
         </div>
 
-        {/* Status Filter Badges */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
-          {[
-            { label: 'Semua Status', value: '' },
-            { label: 'Sedang Dipinjam', value: 'Dipinjam' },
-            { label: 'Terlambat', value: 'Terlambat' },
-            { label: 'Dikembalikan', value: 'Dikembalikan' },
-          ].map((item) => (
-            <button
-              key={item.value}
-              onClick={() => setStatusFilter(item.value)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                statusFilter === item.value
-                  ? 'bg-slate-900 text-white shadow-sm ring-1 ring-slate-900'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-          
-          <button
-            onClick={fetchData}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-300 transition-colors ml-auto md:ml-2 focus-visible:ring-2 focus-visible:ring-emerald-500"
-            title="Segarkan Data"
-            aria-label="Segarkan Data Peminjaman"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-          </button>
-        </div>
+        {/* Status Filter Badges dengan Indikator Jumlah Real-Time */}
+        {(() => {
+          const effective = allList.length > 0 ? allList : list;
+          const countTotal = effective.length;
+          const countDipinjam = effective.filter(p => p.status === 'Dipinjam').length;
+          const countTerlambat = effective.filter(p => p.status === 'Terlambat').length;
+          const countDikembalikan = effective.filter(p => p.status === 'Dikembalikan').length;
+
+          return (
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
+              {[
+                { label: 'Semua Status', value: '', count: countTotal, isAlert: false },
+                { label: 'Sedang Dipinjam', value: 'Dipinjam', count: countDipinjam, isAlert: false },
+                { label: 'Terlambat', value: 'Terlambat', count: countTerlambat, isAlert: countTerlambat > 0 },
+                { label: 'Dikembalikan', value: 'Dikembalikan', count: countDikembalikan, isAlert: false },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => setStatusFilter(item.value)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+                    statusFilter === item.value
+                      ? 'bg-slate-900 text-white shadow-sm ring-1 ring-slate-900'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-mono font-bold ${
+                    item.isAlert
+                      ? 'bg-rose-600 text-white animate-pulse'
+                      : statusFilter === item.value
+                      ? 'bg-slate-700 text-slate-200'
+                      : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {item.count}
+                  </span>
+                </button>
+              ))}
+              
+              <button
+                onClick={fetchData}
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-300 transition-colors ml-auto md:ml-2 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                title="Segarkan Data"
+                aria-label="Segarkan Data Peminjaman"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+              </button>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Tabel Data Peminjaman dengan Skeleton Screen */}
@@ -473,11 +543,22 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
                           </span>
                         );
                       })()}
-                      {item.status === 'Terlambat' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-900 border border-rose-200 animate-pulse">
-                          Terlambat
-                        </span>
-                      )}
+                      {item.status === 'Terlambat' && (() => {
+                        const lateDays = calculateOverdueDays(item.tgl_jatuh_tempo);
+                        const estFine = lateDays * (settings.tarif_denda || 1000);
+                        return (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-900 border border-rose-300 animate-pulse">
+                              🚨 Terlambat {lateDays > 0 ? `${lateDays} Hari` : ''}
+                            </span>
+                            {lateDays > 0 && (
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">
+                                Denda: Rp {estFine.toLocaleString('id-ID')}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                       {roleCode === 'kepala_sekolah' ? (
@@ -883,6 +964,50 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
               />
             </div>
           </div>
+
+          {/* Member Active Loans Status Check */}
+          {(() => {
+            const memberName = formData.nama_anggota.trim();
+            if (!memberName) return null;
+            const activeLoans = (allList.length > 0 ? allList : list).filter(
+              p => p.nama_anggota.toLowerCase().includes(memberName.toLowerCase()) && p.status !== 'Dikembalikan'
+            );
+            if (activeLoans.length === 0) return null;
+
+            return (
+              <div className={`p-3 rounded-xl border text-xs ${
+                activeLoans.length >= 2 ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-blue-50 border-blue-200 text-blue-950'
+              }`}>
+                <div className="flex items-center justify-between font-bold">
+                  <span>Peminjaman Aktif Anggota:</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    activeLoans.length >= 2 ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white'
+                  }`}>
+                    {activeLoans.length} / 2 Buku (Maksimal Kuota)
+                  </span>
+                </div>
+                <div className="mt-1 space-y-0.5 text-[11px] text-slate-700">
+                  {activeLoans.map(l => (
+                    <div key={l.kd_peminjaman} className="flex justify-between">
+                      <span className="truncate max-w-[200px]">• {l.buku?.judul_buku || l.kd_buku}</span>
+                      <span className="font-mono text-slate-500">Tempo: {formatDateIndo(l.tgl_jatuh_tempo)}</span>
+                    </div>
+                  ))}
+                </div>
+                {activeLoans.length >= 2 && (
+                  <label className="flex items-center space-x-2 mt-2 pt-2 border-t border-amber-200 font-bold text-amber-900 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.dispensasi}
+                      onChange={(e) => setFormData({ ...formData, dispensasi: e.target.checked })}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>Berikan Dispensasi Petugas (Izin Khusus Kepala Perpustakaan)</span>
+                  </label>
+                )}
+              </div>
+            );
+          })()}
 
           <div>
             <label className="block font-bold text-slate-800 mb-1">Pilih Buku Dari Katalog</label>

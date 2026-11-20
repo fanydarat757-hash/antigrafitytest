@@ -13,7 +13,8 @@ import {
   CreditCard,
   QrCode,
   Settings,
-  Edit3
+  Edit3,
+  Download
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import KwitansiDendaModal from '../components/KwitansiDendaModal';
@@ -27,6 +28,34 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
   const [activeLoans, setActiveLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [dendaFilter, setDendaFilter] = useState('');
+
+  const handleExportCSV = () => {
+    if (!list || list.length === 0) {
+      showNotification('Tidak ada data pengembalian untuk diekspor.', 'error');
+      return;
+    }
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'No,Kode Kembali,Kode Pinjam,Nama Siswa,Tgl Pengembalian,Keterangan,Denda,Status Denda\n';
+    list.forEach((row, idx) => {
+      const nama = row.peminjaman?.nama_anggota || row.nama_anggota || '-';
+      csvContent += `${idx + 1},"${row.kd_pengembalian}","${row.kd_peminjaman}","${nama}","${row.tgl_pengembalian}","${row.keterangan || '-'}",${row.denda || 0},"${row.status_denda || 'Lunas'}"\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Sirkulasi_Pengembalian_SMA_Muhammadiyah_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification('Data pengembalian & denda berhasil diekspor ke file CSV/Excel!', 'success');
+  };
+
+  const filteredList = list.filter(item => {
+    if (dendaFilter === 'ada_denda') return Number(item.denda) > 0;
+    if (dendaFilter === 'bebas_denda') return Number(item.denda) === 0;
+    return true;
+  });
 
   // Active Settings State
   const [settings, setSettings] = useState({
@@ -314,6 +343,16 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
         </div>
 
         <div className="flex items-center space-x-2 self-start sm:self-auto flex-wrap gap-y-2">
+          {/* Tombol Ekspor CSV/Excel */}
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-300 transition-all shadow-xs"
+            title="Unduh seluruh rekap riwayat pengembalian dan denda ke format CSV / Excel"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-700" />
+            <span>📥 Unduh CSV / Excel</span>
+          </button>
+
           {/* Tombol Cepat: Atur Tarif Denda Global */}
           <button
             onClick={() => { setTempTarif(settings.tarif_denda); setIsTarifModalOpen(true); }}
@@ -337,7 +376,7 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
           <input
@@ -350,14 +389,41 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
           />
         </div>
 
-        <button
-          onClick={fetchData}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-300 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500"
-          title="Segarkan Data"
-          aria-label="Segarkan Data Pengembalian"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-        </button>
+        {/* Denda Filter Chips */}
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
+          {[
+            { label: 'Semua', val: '', count: list.length },
+            { label: 'Ada Denda', val: 'ada_denda', count: list.filter(i => Number(i.denda) > 0).length },
+            { label: 'Bebas Denda (Rp 0)', val: 'bebas_denda', count: list.filter(i => Number(i.denda) === 0).length },
+          ].map(item => (
+            <button
+              key={item.val}
+              type="button"
+              onClick={() => setDendaFilter(item.val)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+                dendaFilter === item.val
+                  ? 'bg-slate-900 text-white shadow-sm ring-1 ring-slate-900'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <span>{item.label}</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-mono font-bold ${
+                dendaFilter === item.val ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {item.count}
+              </span>
+            </button>
+          ))}
+
+          <button
+            onClick={fetchData}
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-300 transition-colors ml-auto md:ml-1 focus-visible:ring-2 focus-visible:ring-emerald-500"
+            title="Segarkan Data"
+            aria-label="Segarkan Data Pengembalian"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Tabel Data Pengembalian dengan Skeleton Screen */}
@@ -383,8 +449,8 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
                   <TableRowSkeleton columns={7} />
                   <TableRowSkeleton columns={7} />
                 </>
-              ) : list.length > 0 ? (
-                list.map((item) => (
+              ) : filteredList.length > 0 ? (
+                filteredList.map((item) => (
                   <tr key={item.kd_pengembalian} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-md font-mono text-[11px] border border-emerald-300">

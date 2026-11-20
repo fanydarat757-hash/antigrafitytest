@@ -373,11 +373,19 @@ if ($uri === '/api/peminjaman' && $method === 'POST') {
         sendJson(['status' => 'error', 'message' => "Stok fisik buku '{$bukuInfo['judul_buku']}' sedang habis di rak perpustakaan."], 422);
     }
 
-    // 2. Validasi Kuota Maksimal Peminjaman (Maks 2 Buku Aktif)
+    // 2. Validasi Kuota Maksimal Peminjaman (Maks 2 Buku Aktif dengan Dukungan Dispensasi Petugas)
+    $dispensasi = !empty($body['dispensasi']) || !empty($body['force']);
     $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM tb_peminjaman WHERE nama_anggota LIKE ? AND status IN ('Dipinjam', 'Terlambat')");
     $activeCheck->execute(["%{$nama}%"]);
-    if ($activeCheck->fetchColumn() >= 2) {
-        sendJson(['status' => 'error', 'message' => "Anggota telah mencapai batas maksimal kuota peminjaman (2 buku aktif). Harap kembalikan buku sebelumnya terlebih dahulu."], 422);
+    $activeCount = (int) $activeCheck->fetchColumn();
+
+    if ($activeCount >= 2 && !$dispensasi) {
+        sendJson([
+            'status' => 'error', 
+            'message' => "Anggota telah mencapai batas maksimal kuota peminjaman ({$activeCount} buku aktif). Centang 'Dispensasi Petugas' jika ada izin khusus dari pihak perpustakaan.",
+            'active_count' => $activeCount,
+            'requires_dispensation' => true
+        ], 422);
     }
 
     $tglTempo = date('Y-m-d', strtotime("{$tglPinjam} + {$durasi} days"));

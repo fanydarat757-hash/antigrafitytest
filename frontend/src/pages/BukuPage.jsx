@@ -8,7 +8,8 @@ import {
   RefreshCw, 
   Sparkles,
   AlertTriangle,
-  Tag
+  Tag,
+  Download
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import BarcodeModal from '../components/BarcodeModal';
@@ -20,6 +21,7 @@ export default function BukuPage({ showNotification, user }) {
   const [bukuList, setBukuList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [rakFilter, setRakFilter] = useState('');
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,6 +53,31 @@ export default function BukuPage({ showNotification, user }) {
       setLoading(false);
     }
   };
+
+  const handleExportCSV = () => {
+    if (!bukuList || bukuList.length === 0) {
+      showNotification('Tidak ada data buku untuk diekspor.', 'error');
+      return;
+    }
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'No,Kode Buku,Judul Buku,Pengarang,Penerbit,Lokasi Rak,Tahun Terbit,Stok\n';
+    bukuList.forEach((row, idx) => {
+      csvContent += `${idx + 1},"${row.kd_buku}","${row.judul_buku}","${row.pengarang}","${row.penerbit}","${row.lokasi_rak || '-'}","${row.tahun_terbit}",${row.stok}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Katalog_Buku_SMA_Muhammadiyah_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification('Katalog master buku berhasil diekspor ke file CSV/Excel!', 'success');
+  };
+
+  const filteredBukuList = bukuList.filter(b => {
+    if (!rakFilter) return true;
+    return (b.lokasi_rak || '').toLowerCase().includes(rakFilter.toLowerCase());
+  });
 
   useEffect(() => {
     fetchBuku();
@@ -150,23 +177,35 @@ export default function BukuPage({ showNotification, user }) {
             <span>Master Data Buku</span>
           </h2>
           <p className="text-xs text-slate-600 font-medium mt-1">
-            Katalog dan inventaris buku SMA Muhammadiyah Pekalongan
+            Katalog dan inventaris buku SMA Muhammadiyah Pekalongan • Total {bukuList.length} Judul Buku Terdaftar
           </p>
         </div>
 
-        {roleCode !== 'kepala_sekolah' && (
+        <div className="flex items-center space-x-2.5 self-start sm:self-auto flex-wrap gap-y-2">
+          {/* Tombol Ekspor CSV/Excel */}
           <button
-            onClick={handleOpenAdd}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all self-start sm:self-auto focus-visible:ring-2 focus-visible:ring-emerald-500"
+            onClick={handleExportCSV}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-300 transition-all shadow-xs"
+            title="Unduh seluruh master katalog buku ke file CSV / Excel"
           >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Buku Baru</span>
+            <Download className="w-3.5 h-3.5 text-slate-700" />
+            <span>📥 Unduh CSV / Excel</span>
           </button>
-        )}
+
+          {roleCode !== 'kepala_sekolah' && (
+            <button
+              onClick={handleOpenAdd}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Buku Baru</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
           <input
@@ -179,14 +218,37 @@ export default function BukuPage({ showNotification, user }) {
           />
         </div>
 
-        <button
-          onClick={fetchBuku}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-300 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500"
-          title="Segarkan Data"
-          aria-label="Segarkan Data Buku"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-        </button>
+        {/* Rak Filter Chips */}
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
+          {[
+            { label: 'Semua Rak', val: '' },
+            { label: 'Rak A (MIPA)', val: 'Rak A' },
+            { label: 'Rak B (Agama & Sejarah)', val: 'Rak B' },
+            { label: 'Rak C (Bahasa & Sastra)', val: 'Rak C' },
+          ].map(item => (
+            <button
+              key={item.val}
+              type="button"
+              onClick={() => setRakFilter(item.val)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                rakFilter === item.val
+                  ? 'bg-slate-900 text-white shadow-sm ring-1 ring-slate-900'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+
+          <button
+            onClick={fetchBuku}
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-300 transition-colors ml-auto md:ml-1 focus-visible:ring-2 focus-visible:ring-emerald-500"
+            title="Segarkan Data"
+            aria-label="Segarkan Data Buku"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Tabel Data Buku dengan Skeleton Screen */}
@@ -213,8 +275,8 @@ export default function BukuPage({ showNotification, user }) {
                   <TableRowSkeleton columns={8} />
                   <TableRowSkeleton columns={8} />
                 </>
-              ) : bukuList.length > 0 ? (
-                bukuList.map((item) => (
+              ) : filteredBukuList.length > 0 ? (
+                filteredBukuList.map((item) => (
                   <tr key={item.kd_buku} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       <span className="px-2.5 py-1 bg-slate-100 rounded-md font-mono text-[11px] border border-slate-300 text-slate-800">
