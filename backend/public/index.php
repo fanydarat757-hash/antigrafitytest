@@ -428,7 +428,7 @@ if ($uri === '/api/peminjaman' && $method === 'POST') {
     }
 }
 
-// PERPANJANGAN MASA PEMINJAMAN (+7 HARI)
+// PERPANJANGAN MASA PEMINJAMAN (FLEKSIBEL: +HARI / TANGGAL KUSTOM / IZIN PETUGAS)
 if (preg_match('#^/api/peminjaman/([a-zA-Z0-9_-]+)/perpanjang$#', $uri, $m) && $method === 'POST') {
     $kdPinjam = $m[1];
     $stmt = $pdo->prepare("SELECT * FROM tb_peminjaman WHERE kd_peminjaman = ? LIMIT 1");
@@ -441,40 +441,62 @@ if (preg_match('#^/api/peminjaman/([a-zA-Z0-9_-]+)/perpanjang$#', $uri, $m) && $
     if ($loan['status'] === 'Dikembalikan') {
         sendJson(['status' => 'error', 'message' => 'Buku sudah dikembalikan, masa pinjam tidak dapat diperpanjang.'], 422);
     }
-    if ($loan['status'] === 'Terlambat' || strtotime(date('Y-m-d')) > strtotime($loan['tgl_jatuh_tempo'])) {
-        sendJson(['status' => 'error', 'message' => 'Buku telah melewati batas jatuh tempo (Terlambat). Harap selesaikan pengembalian dan denda di loket perpustakaan.'], 422);
-    }
-    if ((int)($loan['perpanjangan_count'] ?? 0) >= 1) {
-        sendJson(['status' => 'error', 'message' => 'Batas maksimal perpanjangan (1 kali per transaksi) telah digunakan.'], 422);
-    }
 
-    $baseDate = $loan['tgl_jatuh_tempo'] ?: date('Y-m-d');
-    $newTempo = date('Y-m-d', strtotime("{$baseDate} + 7 days"));
+    $force = !empty($body['force']) || !empty($body['is_staff']) || !empty($body['override']);
 
-    // Ambil biaya perpanjangan dari tabel tb_pengaturan
-    $feeStmt = $pdo->query("SELECT nilai FROM tb_pengaturan WHERE kunci = 'biaya_perpanjangan' LIMIT 1");
-    $fee = 0;
-    if ($feeStmt) {
-        $val = $feeStmt->fetchColumn();
-        if ($val !== false && is_numeric($val)) {
-            $fee = (int) $val;
+    if (!$force) {
+        if ($loan['status'] === 'Terlambat' || strtotime(date('Y-m-d')) > strtotime($loan['tgl_jatuh_tempo'])) {
+            sendJson(['status' => 'error', 'message' => 'Buku telah melewati batas jatuh tempo (Terlambat). Gunakan opsi izin petugas/admin untuk dispensasi perpanjangan.'], 422);
+        }
+        if ((int)($loan['perpanjangan_count'] ?? 0) >= 1) {
+            sendJson(['status' => 'error', 'message' => 'Batas standar perpanjangan mandiri (1 kali) telah digunakan. Gunakan opsi petugas untuk perpanjangan tambahan.'], 422);
         }
     }
 
-    $metodeBayar = trim($body['metode_pembayaran'] ?? ($fee > 0 ? 'QRIS (lupayyy, Konter)' : 'Gratis / Bebas Biaya'));
+    $baseDate = $loan['tgl_jatuh_tempo'] ?: date('Y-m-d');
+    
+    // Tentukan tanggal jatuh tempo baru: jika dikirim tanggal kustom atau hari tambahan
+    if (!empty($body['tgl_jatuh_tempo_baru'])) {
+        $newTempo = $body['tgl_jatuh_tempo_baru'];
+        $daysDiff = max(1, (int) round((strtotime($newTempo) - strtotime($baseDate)) / 86400));
+    } else {
+        $daysToAdd = isset($body['hari_tambahan']) && is_numeric($body['hari_tambahan']) && (int)$body['hari_tambahan'] > 0 ? (int)$body['hari_tambahan'] : 7;
+        $newTempo = date('Y-m-d', strtotime("{$baseDate} + {$daysToAdd} days"));
+        $daysDiff = $daysToAdd;
+    }
+
+    // Ambil atau gunakan biaya perpanjangan
+    $fee = isset($body['biaya_perpanjangan']) && is_numeric($body['biaya_perpanjangan']) ? (int)$body['biaya_perpanjangan'] : null;
+    if ($fee === null) {
+        $feeStmt = $pdo->query("SELECT nilai FROM tb_pengaturan WHERE kunci = 'biaya_perpanjangan' LIMIT 1");
+        $fee = 0;
+        if ($feeStmt) {
+            $val = $feeStmt->fetchColumn();
+            if ($val !== false && is_numeric($val)) {
+                $fee = (int) $val;
+            }
+        }
+    }
+
+    $metodeBayar = trim($body['metode_pembayaran'] ?? ($fee > 0 ? 'Tunai di Loket' : 'Gratis / Bebas Biaya'));
     $idTransaksi = trim($body['id_transaksi'] ?? ($fee > 0 ? 'PAY-EXT-' . date('Ymd') . '-' . strtoupper(substr(md5(uniqid()), 0, 5)) : null));
 
-    $pdo->prepare("UPDATE tb_peminjaman SET tgl_jatuh_tempo = ?, perpanjangan_count = perpanjangan_count + 1, biaya_perpanjangan = ?, metode_bayar_perpanjang = ?, id_transaksi_perpanjang = ? WHERE kd_peminjaman = ?")
-        ->execute([$newTempo, $fee, $metodeBayar, $idTransaksi, $kdPinjam]);
+    // Pulihkan status dari Terlambat menjadi Dipinjam jika tempo baru >= hari ini
+    $newStatus = ($loan['status'] === 'Terlambat' && strtotime($newTempo) >= strtotime(date('Y-m-d'))) ? 'Dipinjam' : $loan['status'];
 
-    $feeText = $fee > 0 ? " Biaya perpanjangan: Rp " . number_format($fee, 0, ',', '.') . " (" . $metodeBayar . ")." : "";
+    $pdo->prepare("UPDATE tb_peminjaman SET tgl_jatuh_tempo = ?, status = ?, perpanjangan_count = perpanjangan_count + 1, biaya_perpanjangan = ?, metode_bayar_perpanjang = ?, id_transaksi_perpanjang = ? WHERE kd_peminjaman = ?")
+        ->execute([$newTempo, $newStatus, $fee, $metodeBayar, $idTransaksi, $kdPinjam]);
+
+    $feeText = $fee > 0 ? " Biaya administrasi: Rp " . number_format($fee, 0, ',', '.') . " (" . $metodeBayar . ")." : " (Bebas Biaya / Gratis).";
 
     sendJson([
         'status' => 'success',
-        'message' => 'Masa pinjam berhasil diperpanjang +7 hari sampai tanggal ' . date('d-m-Y', strtotime($newTempo)) . '.' . $feeText,
+        'message' => "Masa pinjam {$kdPinjam} berhasil diperpanjang (+{$daysDiff} hari) sampai tanggal " . date('d-m-Y', strtotime($newTempo)) . ".{$feeText}",
         'data' => [
             'kd_peminjaman' => $kdPinjam,
             'tgl_jatuh_tempo_baru' => $newTempo,
+            'status_baru' => $newStatus,
+            'perpanjangan_count' => (int)($loan['perpanjangan_count'] ?? 0) + 1,
             'biaya_perpanjangan' => $fee,
             'metode_pembayaran' => $metodeBayar,
             'id_transaksi' => $idTransaksi
@@ -482,9 +504,38 @@ if (preg_match('#^/api/peminjaman/([a-zA-Z0-9_-]+)/perpanjang$#', $uri, $m) && $
     ]);
 }
 
-// =====================================================================
-// 4B. ROUTING: PENGATURAN SISTEM & KONFIGURASI SOP SIRKULASI
-// =====================================================================
+// UPDATE / EDIT MASA JATUH TEMPO PINJAM SECARA LANGSUNG
+if (preg_match('#^/api/peminjaman/([a-zA-Z0-9_-]+)/update-tempo$#', $uri, $m) && ($method === 'POST' || $method === 'PUT')) {
+    $kdPinjam = $m[1];
+    $stmt = $pdo->prepare("SELECT * FROM tb_peminjaman WHERE kd_peminjaman = ? LIMIT 1");
+    $stmt->execute([$kdPinjam]);
+    $loan = $stmt->fetch();
+
+    if (!$loan) {
+        sendJson(['status' => 'error', 'message' => 'Data peminjaman tidak ditemukan.'], 404);
+    }
+
+    $tglTempoBaru = trim($body['tgl_jatuh_tempo'] ?? '');
+    if (empty($tglTempoBaru)) {
+        sendJson(['status' => 'error', 'message' => 'Tanggal jatuh tempo baru wajib diisi.'], 422);
+    }
+
+    $newStatus = ($loan['status'] === 'Terlambat' && strtotime($tglTempoBaru) >= strtotime(date('Y-m-d'))) ? 'Dipinjam' : $loan['status'];
+    $catatan = trim($body['catatan'] ?? '');
+
+    $pdo->prepare("UPDATE tb_peminjaman SET tgl_jatuh_tempo = ?, status = ? WHERE kd_peminjaman = ?")
+        ->execute([$tglTempoBaru, $newStatus, $kdPinjam]);
+
+    sendJson([
+        'status' => 'success',
+        'message' => "Masa jatuh tempo peminjaman {$kdPinjam} berhasil diperbarui menjadi " . date('d-m-Y', strtotime($tglTempoBaru)) . "!",
+        'data' => [
+            'kd_peminjaman' => $kdPinjam,
+            'tgl_jatuh_tempo' => $tglTempoBaru,
+            'status' => $newStatus
+        ]
+    ]);
+}
 if ($uri === '/api/pengaturan' && $method === 'GET') {
     $pdo->exec("CREATE TABLE IF NOT EXISTS tb_pengaturan (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -505,6 +556,7 @@ if ($uri === '/api/pengaturan' && $method === 'GET') {
         'data' => [
             'tarif_denda' => (int) ($map['tarif_denda'] ?? 1000),
             'durasi_pinjam' => (int) ($map['durasi_pinjam'] ?? 7),
+            'durasi_perpanjangan' => (int) ($map['durasi_perpanjangan'] ?? 7),
             'biaya_perpanjangan' => (int) ($map['biaya_perpanjangan'] ?? 2000),
             'nama_perpustakaan' => $map['nama_perpustakaan'] ?? 'Perpustakaan SMA Muhammadiyah 1 Pekalongan',
             'qris_merchant' => $map['qris_merchant'] ?? 'lupayyy, Konter',
@@ -516,6 +568,7 @@ if ($uri === '/api/pengaturan' && $method === 'GET') {
 if ($uri === '/api/pengaturan' && ($method === 'POST' || $method === 'PUT')) {
     $tarif = isset($body['tarif_denda']) ? (int) $body['tarif_denda'] : null;
     $durasi = isset($body['durasi_pinjam']) ? (int) $body['durasi_pinjam'] : null;
+    $durasiExt = isset($body['durasi_perpanjangan']) ? (int) $body['durasi_perpanjangan'] : null;
     $biayaExt = isset($body['biaya_perpanjangan']) ? (int) $body['biaya_perpanjangan'] : null;
     $qrisMerchant = trim($body['qris_merchant'] ?? '');
     $qrisNmid = trim($body['qris_nmid'] ?? '');
@@ -527,6 +580,9 @@ if ($uri === '/api/pengaturan' && ($method === 'POST' || $method === 'PUT')) {
     }
     if ($durasi !== null) {
         $stmt->execute(['durasi_pinjam', (string) $durasi]);
+    }
+    if ($durasiExt !== null) {
+        $stmt->execute(['durasi_perpanjangan', (string) $durasiExt]);
     }
     if ($biayaExt !== null) {
         $stmt->execute(['biaya_perpanjangan', (string) $biayaExt]);
@@ -544,6 +600,7 @@ if ($uri === '/api/pengaturan' && ($method === 'POST' || $method === 'PUT')) {
         'data' => [
             'tarif_denda' => $tarif,
             'durasi_pinjam' => $durasi,
+            'durasi_perpanjangan' => $durasiExt,
             'biaya_perpanjangan' => $biayaExt,
             'qris_merchant' => $qrisMerchant,
             'qris_nmid' => $qrisNmid,
@@ -706,6 +763,47 @@ if (preg_match('#^/api/pengembalian/([A-Za-z0-9]+)/bayar-denda$#', $uri, $m) && 
             'metode_pembayaran' => $metode,
             'id_transaksi_gateway' => $idGateway,
             'waktu_bayar' => $waktuBayar
+        ]
+    ]);
+}
+
+// EDIT BESARAN DENDA PENGEMBALIAN (PENYESUAIAN / DISPENSASI / GANTI RUGI)
+if (preg_match('#^/api/pengembalian/([A-Za-z0-9]+)/edit-denda$#', $uri, $m) && ($method === 'POST' || $method === 'PUT')) {
+    $kdKembali = $m[1];
+    $stmt = $pdo->prepare("SELECT * FROM tb_pengembalian WHERE kd_pengembalian = ? LIMIT 1");
+    $stmt->execute([$kdKembali]);
+    $k = $stmt->fetch();
+
+    if (!$k) {
+        sendJson(['status' => 'error', 'message' => 'Data pengembalian tidak ditemukan.'], 404);
+    }
+
+    $dendaBaru = isset($body['denda']) ? (float)$body['denda'] : null;
+    if ($dendaBaru === null) {
+        sendJson(['status' => 'error', 'message' => 'Nominal denda baru harus diisi.'], 422);
+    }
+
+    $keterangan = trim($body['keterangan'] ?? $k['keterangan']);
+    $statusDenda = trim($body['status_denda'] ?? '');
+    if (empty($statusDenda)) {
+        if ($dendaBaru <= 0) {
+            $statusDenda = 'Tanpa Denda';
+        } else {
+            $statusDenda = ($k['status_denda'] === 'Tanpa Denda') ? 'Tertunggak' : $k['status_denda'];
+        }
+    }
+
+    $sql = "UPDATE tb_pengembalian SET denda = ?, status_denda = ?, keterangan = ? WHERE kd_pengembalian = ?";
+    $pdo->prepare($sql)->execute([$dendaBaru, $statusDenda, $keterangan, $kdKembali]);
+
+    sendJson([
+        'status' => 'success',
+        'message' => "Besaran denda {$kdKembali} berhasil diperbarui menjadi Rp " . number_format($dendaBaru, 0, ',', '.') . " ({$statusDenda})!",
+        'data' => [
+            'kd_pengembalian' => $kdKembali,
+            'denda' => $dendaBaru,
+            'status_denda' => $statusDenda,
+            'keterangan' => $keterangan
         ]
     ]);
 }

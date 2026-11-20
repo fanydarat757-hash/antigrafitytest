@@ -277,12 +277,47 @@ export const api = {
     } catch (err) {
       const p = mockPeminjaman.find(item => item.kd_peminjaman === kd_peminjaman);
       if (p) {
-        const curDate = new Date(p.tgl_jatuh_tempo || p.tgl_peminjaman);
-        p.tgl_jatuh_tempo = new Date(curDate.getTime() + 7 * 86400000).toISOString().split('T')[0];
+        let newTempo;
+        const days = extraPayload.hari_tambahan || 7;
+        if (extraPayload.tgl_jatuh_tempo_baru) {
+          newTempo = extraPayload.tgl_jatuh_tempo_baru;
+        } else {
+          const curDate = new Date(p.tgl_jatuh_tempo || p.tgl_peminjaman);
+          newTempo = new Date(curDate.getTime() + days * 86400000).toISOString().split('T')[0];
+        }
+        p.tgl_jatuh_tempo = newTempo;
         p.perpanjangan_count = (p.perpanjangan_count || 0) + 1;
-        p.biaya_perpanjangan = extraPayload.biaya_perpanjangan || 2000;
-        p.metode_bayar_perpanjang = extraPayload.metode_pembayaran || 'QRIS (lupayyy, Konter)';
-        return { status: 'success', message: `Masa pinjam berhasil diperpanjang +7 hari sampai ${p.tgl_jatuh_tempo}` };
+        p.biaya_perpanjangan = extraPayload.biaya_perpanjangan !== undefined ? Number(extraPayload.biaya_perpanjangan) : 2000;
+        p.metode_bayar_perpanjang = extraPayload.metode_pembayaran || 'Tunai di Loket';
+        if (p.status === 'Terlambat' && new Date(newTempo) >= new Date()) {
+          p.status = 'Dipinjam';
+        }
+        return { 
+          status: 'success', 
+          message: `Masa pinjam ${kd_peminjaman} berhasil diperpanjang (+${days} hari) sampai ${p.tgl_jatuh_tempo}`,
+          data: {
+            kd_peminjaman,
+            tgl_jatuh_tempo_baru: newTempo,
+            perpanjangan_count: p.perpanjangan_count
+          }
+        };
+      }
+      throw err;
+    }
+  },
+
+  async updatePeminjamanTempo(kd_peminjaman, payload) {
+    try {
+      const res = await apiClient.post(`/peminjaman/${kd_peminjaman}/update-tempo`, payload);
+      return res.data;
+    } catch (err) {
+      const p = mockPeminjaman.find(item => item.kd_peminjaman === kd_peminjaman);
+      if (p) {
+        p.tgl_jatuh_tempo = payload.tgl_jatuh_tempo;
+        if (p.status === 'Terlambat' && new Date(payload.tgl_jatuh_tempo) >= new Date()) {
+          p.status = 'Dipinjam';
+        }
+        return { status: 'success', message: 'Masa jatuh tempo berhasil diperbarui!' };
       }
       throw err;
     }
@@ -393,6 +428,22 @@ export const api = {
     }
   },
 
+  async editDendaPengembalian(kd_pengembalian, payload = {}) {
+    try {
+      const res = await apiClient.post(`/pengembalian/${kd_pengembalian}/edit-denda`, payload);
+      return res.data;
+    } catch (err) {
+      const k = mockPengembalian.find(item => item.kd_pengembalian === kd_pengembalian);
+      if (k) {
+        k.denda = Number(payload.denda ?? k.denda);
+        if (payload.status_denda) k.status_denda = payload.status_denda;
+        if (payload.keterangan) k.keterangan = payload.keterangan;
+        return { status: 'success', message: `Besaran denda ${kd_pengembalian} berhasil diperbarui!` };
+      }
+      throw err;
+    }
+  },
+
   // --- PAYMENT GATEWAY API (QRIS & VIRTUAL ACCOUNT) ---
   async createPaymentInvoice(payload) {
     try {
@@ -441,18 +492,25 @@ export const api = {
     try {
       const res = await apiClient.get('/pengaturan');
       if (res.data?.data) {
-        if (res.data.data.tarif_denda) localStorage.setItem('perpus_tarif_denda', res.data.data.tarif_denda);
-        if (res.data.data.durasi_pinjam) localStorage.setItem('perpus_durasi_pinjam', res.data.data.durasi_pinjam);
+        if (res.data.data.tarif_denda !== undefined) localStorage.setItem('perpus_tarif_denda', res.data.data.tarif_denda);
+        if (res.data.data.durasi_pinjam !== undefined) localStorage.setItem('perpus_durasi_pinjam', res.data.data.durasi_pinjam);
+        if (res.data.data.durasi_perpanjangan !== undefined) localStorage.setItem('perpus_durasi_perpanjangan', res.data.data.durasi_perpanjangan);
+        if (res.data.data.biaya_perpanjangan !== undefined) localStorage.setItem('perpus_biaya_perpanjangan', res.data.data.biaya_perpanjangan);
       }
       return res.data;
     } catch {
       const savedTarif = localStorage.getItem('perpus_tarif_denda');
       const savedDurasi = localStorage.getItem('perpus_durasi_pinjam');
+      const savedDurasiExt = localStorage.getItem('perpus_durasi_perpanjangan');
+      const savedBiayaExt = localStorage.getItem('perpus_biaya_perpanjangan');
       return {
         status: 'success',
         data: {
           tarif_denda: savedTarif ? Number(savedTarif) : 1000,
           durasi_pinjam: savedDurasi ? Number(savedDurasi) : 7,
+          durasi_perpanjangan: savedDurasiExt ? Number(savedDurasiExt) : 7,
+          biaya_perpanjangan: savedBiayaExt ? Number(savedBiayaExt) : 2000,
+          nama_perpustakaan: 'Perpustakaan SMA Muhammadiyah 1 Pekalongan',
           qris_merchant: 'lupayyy, Konter',
           qris_nmid: 'ID1026632009753'
         }
@@ -465,10 +523,14 @@ export const api = {
       const res = await apiClient.post('/pengaturan', payload);
       if (payload.tarif_denda !== undefined) localStorage.setItem('perpus_tarif_denda', payload.tarif_denda);
       if (payload.durasi_pinjam !== undefined) localStorage.setItem('perpus_durasi_pinjam', payload.durasi_pinjam);
+      if (payload.durasi_perpanjangan !== undefined) localStorage.setItem('perpus_durasi_perpanjangan', payload.durasi_perpanjangan);
+      if (payload.biaya_perpanjangan !== undefined) localStorage.setItem('perpus_biaya_perpanjangan', payload.biaya_perpanjangan);
       return res.data;
     } catch {
       if (payload.tarif_denda !== undefined) localStorage.setItem('perpus_tarif_denda', payload.tarif_denda);
       if (payload.durasi_pinjam !== undefined) localStorage.setItem('perpus_durasi_pinjam', payload.durasi_pinjam);
+      if (payload.durasi_perpanjangan !== undefined) localStorage.setItem('perpus_durasi_perpanjangan', payload.durasi_perpanjangan);
+      if (payload.biaya_perpanjangan !== undefined) localStorage.setItem('perpus_biaya_perpanjangan', payload.biaya_perpanjangan);
       return {
         status: 'success',
         message: 'Pengaturan berhasil diperbarui!',

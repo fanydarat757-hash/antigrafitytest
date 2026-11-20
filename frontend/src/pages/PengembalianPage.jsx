@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   Receipt,
   CreditCard,
-  QrCode
+  QrCode,
+  Settings,
+  Edit3
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import KwitansiDendaModal from '../components/KwitansiDendaModal';
@@ -26,7 +28,15 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  // Modal State
+  // Active Settings State
+  const [settings, setSettings] = useState({
+    tarif_denda: 1000,
+    durasi_pinjam: 7,
+    durasi_perpanjangan: 7,
+    biaya_perpanjangan: 2000
+  });
+
+  // Modal Tambah Pengembalian State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
   const [gatewayData, setGatewayData] = useState(null);
@@ -41,6 +51,42 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
   });
   const [dendaPreview, setDendaPreview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Modal Edit Denda Transaksi Yang Ada State
+  const [isEditDendaModalOpen, setIsEditDendaModalOpen] = useState(false);
+  const [selectedReturnForEdit, setSelectedReturnForEdit] = useState(null);
+  const [editDendaForm, setEditDendaForm] = useState({
+    denda: 0,
+    status_denda: 'Lunas',
+    keterangan: ''
+  });
+  const [submittingEditDenda, setSubmittingEditDenda] = useState(false);
+
+  // Modal Edit Tarif Denda Cepat State
+  const [isTarifModalOpen, setIsTarifModalOpen] = useState(false);
+  const [tempTarif, setTempTarif] = useState(1000);
+  const [submittingTarif, setSubmittingTarif] = useState(false);
+
+  const loadSettings = async () => {
+    try {
+      const res = await api.getPengaturan();
+      if (res?.data) {
+        setSettings({
+          tarif_denda: Number(res.data.tarif_denda ?? 1000),
+          durasi_pinjam: Number(res.data.durasi_pinjam ?? 7),
+          durasi_perpanjangan: Number(res.data.durasi_perpanjangan ?? 7),
+          biaya_perpanjangan: Number(res.data.biaya_perpanjangan ?? 2000)
+        });
+        setTempTarif(Number(res.data.tarif_denda ?? 1000));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -80,6 +126,8 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
         tgl_pengembalian: new Date().toISOString().split('T')[0],
         keterangan: 'Buku Dikembalikan dalam Kondisi Baik',
         denda: 0,
+        status_denda: 'Lunas',
+        metode_pembayaran: 'Tunai Loket',
       });
 
       if (selectedLoan) {
@@ -92,6 +140,8 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
         tgl_pengembalian: new Date().toISOString().split('T')[0],
         keterangan: 'Buku Dikembalikan',
         denda: 0,
+        status_denda: 'Lunas',
+        metode_pembayaran: 'Tunai Loket',
       });
     }
     setIsModalOpen(true);
@@ -109,9 +159,11 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
       const res = await api.hitungDenda(loanCode, returnDate);
       if (res && res.data) {
         setDendaPreview(res.data);
+        const nominal = Number(res.data.denda ?? 0);
         setFormData(prev => ({
           ...prev,
-          denda: res.data.denda,
+          denda: nominal,
+          status_denda: nominal > 0 ? 'Lunas' : 'Tanpa Denda',
           keterangan: res.data.keterangan_default
         }));
       }
@@ -139,11 +191,63 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
     try {
       const res = await api.lunasiDenda(item.kd_pengembalian);
       showNotification(res.message || 'Denda berhasil dilunasi!', 'success');
-      // Otomatis buka kwitansi pelunasan
       setReceiptData({ ...item, status_denda: 'Lunas' });
       fetchData();
     } catch (err) {
       showNotification('Gagal melunasi denda: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
+
+  // --- HANDLER MODAL EDIT DENDA PADA REKAMAN TRANSAKSI YANG ADA ---
+  const handleOpenEditDenda = (item) => {
+    setSelectedReturnForEdit(item);
+    setEditDendaForm({
+      denda: Number(item.denda ?? 0),
+      status_denda: item.status_denda || 'Lunas',
+      keterangan: item.keterangan || ''
+    });
+    setIsEditDendaModalOpen(true);
+  };
+
+  const handleSubmitEditDenda = async (e) => {
+    e.preventDefault();
+    if (!selectedReturnForEdit) return;
+    setSubmittingEditDenda(true);
+    try {
+      const res = await api.editDendaPengembalian(selectedReturnForEdit.kd_pengembalian, {
+        denda: Number(editDendaForm.denda),
+        status_denda: editDendaForm.status_denda,
+        keterangan: editDendaForm.keterangan
+      });
+      showNotification(res.message || 'Besaran denda berhasil diperbarui!', 'success');
+      setIsEditDendaModalOpen(false);
+      fetchData();
+    } catch (err) {
+      showNotification('Gagal memperbarui denda: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setSubmittingEditDenda(false);
+    }
+  };
+
+  // --- HANDLER MODAL CEPAT ATUR TARIF DENDA GLOBAL ---
+  const handleSaveTarifGlobal = async (e) => {
+    e.preventDefault();
+    setSubmittingTarif(true);
+    try {
+      await api.updatePengaturan({
+        ...settings,
+        tarif_denda: Number(tempTarif)
+      });
+      setSettings(prev => ({ ...prev, tarif_denda: Number(tempTarif) }));
+      showNotification(`Besaran tarif denda global berhasil diubah menjadi Rp ${Number(tempTarif).toLocaleString('id-ID')} / hari!`, 'success');
+      setIsTarifModalOpen(false);
+      if (formData.kd_peminjaman) {
+        calcDenda(formData.kd_peminjaman, formData.tgl_pengembalian);
+      }
+    } catch (err) {
+      showNotification('Gagal menyimpan tarif: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setSubmittingTarif(false);
     }
   };
 
@@ -159,7 +263,6 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
       showNotification('Pengembalian buku berhasil diproses dan stok telah diperbarui!', 'success');
       setIsModalOpen(false);
 
-      // Jika memilih jalur Payment Gateway, langsung buka modal QRIS/VA
       if (formData.metode_pembayaran?.includes('Payment Gateway') || formData.metode_pembayaran?.includes('QRIS')) {
         const selectedLoan = activeLoans.find(l => l.kd_peminjaman === formData.kd_peminjaman);
         setGatewayData({
@@ -201,20 +304,36 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
             <ArrowDownLeft className="w-5 h-5 text-emerald-600" />
             <span>{roleCode === 'petugas_sirkulasi' ? 'Loket Penerimaan Kembali Buku & Denda' : 'Sirkulasi: Transaksi Pengembalian & Denda'}</span>
           </h2>
-          <p className="text-xs text-slate-600 font-medium mt-1">
-            Pencatatan pengembalian buku dan kalkulasi denda otomatis
-          </p>
+          <div className="flex items-center space-x-3 mt-1 text-xs text-slate-600 font-medium flex-wrap">
+            <span>Pencatatan pengembalian buku dan kalkulasi denda otomatis</span>
+            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-mono text-[11px] font-bold border border-amber-200">
+              <Coins className="w-3 h-3 text-amber-600" />
+              <span>Tarif Denda Aktif: Rp {settings.tarif_denda.toLocaleString('id-ID')} / hari / buku</span>
+            </span>
+          </div>
         </div>
 
-        {roleCode !== 'kepala_sekolah' && (
+        <div className="flex items-center space-x-2 self-start sm:self-auto flex-wrap gap-y-2">
+          {/* Tombol Cepat: Atur Tarif Denda Global */}
           <button
-            onClick={() => handleOpenAdd()}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all self-start sm:self-auto focus-visible:ring-2 focus-visible:ring-emerald-500"
+            onClick={() => { setTempTarif(settings.tarif_denda); setIsTarifModalOpen(true); }}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-300 transition-all shadow-xs"
+            title="Ubah besaran tarif denda harian perpustakaan"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Catat Pengembalian Buku</span>
+            <Settings className="w-3.5 h-3.5 text-slate-700" />
+            <span>⚙️ Edit Tarif Denda</span>
           </button>
-        )}
+
+          {roleCode !== 'kepala_sekolah' && (
+            <button
+              onClick={() => handleOpenAdd()}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Catat Pengembalian Buku</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
@@ -253,7 +372,7 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
                 <th className="py-3.5 px-4">Buku Dikembalikan</th>
                 <th className="py-3.5 px-4">Tgl Kembali</th>
                 <th className="py-3.5 px-4">Denda</th>
-                <th className="py-3.5 px-4 text-right">Aksi</th>
+                <th className="py-3.5 px-4 text-right">Aksi & Kwitansi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -288,9 +407,21 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
                     <td className="py-3.5 px-4">
                       {Number(item.denda) > 0 ? (
                         <div>
-                          <span className="font-bold text-rose-700 font-mono bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                            {formatRupiah(item.denda)}
-                          </span>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-bold text-rose-700 font-mono bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              {formatRupiah(item.denda)}
+                            </span>
+                            {/* Tombol Edit Denda pada Baris Transaksi */}
+                            {roleCode !== 'kepala_sekolah' && (
+                              <button
+                                onClick={() => handleOpenEditDenda(item)}
+                                title="Edit besaran denda transaksi ini"
+                                className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 transition-colors"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                              </button>
+                            )}
+                          </div>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <span className={`inline-flex px-1.5 py-0.2 rounded text-[9px] font-bold ${
                               item.status_denda === 'Tertunggak'
@@ -307,9 +438,20 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
                           </div>
                         </div>
                       ) : (
-                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          Rp 0 (Tepat Waktu)
-                        </span>
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Rp 0 (Tepat Waktu)
+                          </span>
+                          {roleCode !== 'kepala_sekolah' && (
+                            <button
+                              onClick={() => handleOpenEditDenda(item)}
+                              title="Tambah denda manual (misal: denda kerusakan)"
+                              className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
+                            >
+                              <Edit3 className="w-3 h-3 text-slate-500" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -362,7 +504,7 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
         </div>
       </div>
 
-      {/* Modal Form Pengembalian Buku */}
+      {/* MODAL 1: FORM PENGEMBALIAN BUKU DENGAN INPUT DENDA YANG BISA DIEDIT */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -393,7 +535,7 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
               required
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 text-slate-900 font-medium"
             >
-              <option value="">-- Pilih Siswa / Kode Pinjam --</option>
+              <option value="">-- Pilih Transaksi Pinjam Aktif --</option>
               {activeLoans.map((l) => (
                 <option key={l.kd_peminjaman} value={l.kd_peminjaman}>
                   [{l.kd_peminjaman}] {l.nama_anggota} - {l.buku?.judul_buku || l.kd_buku} (Tempo: {l.tgl_jatuh_tempo})
@@ -413,21 +555,21 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
             />
           </div>
 
-          {/* Denda Calculator Card */}
+          {/* Denda Calculator Card (Hasil Hitung Otomatis) */}
           {dendaPreview && (
-            <div className={`p-4 rounded-xl border ${
+            <div className={`p-3.5 rounded-xl border ${
               dendaPreview.hari_terlambat > 0 
                 ? 'bg-rose-50 border-rose-300 text-rose-950' 
                 : 'bg-emerald-50 border-emerald-300 text-emerald-950'
             }`}>
-              <div className="flex items-center justify-between font-bold mb-2">
+              <div className="flex items-center justify-between font-bold mb-1.5">
                 <span className="flex items-center space-x-1.5">
                   <Coins className="w-4 h-4 text-emerald-600" />
-                  <span>Kalkulasi Otomatis Denda</span>
+                  <span>Kalkulasi Otomatis Sistem</span>
                 </span>
                 <span className="text-sm font-mono font-extrabold">{formatRupiah(dendaPreview.denda)}</span>
               </div>
-              <div className="space-y-1 text-[11px] font-medium opacity-90">
+              <div className="space-y-0.5 text-[11px] font-medium opacity-90">
                 <div className="flex justify-between">
                   <span>Jatuh Tempo:</span>
                   <span className="font-bold">{dendaPreview.tgl_jatuh_tempo}</span>
@@ -444,7 +586,66 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
             </div>
           )}
 
-          {dendaPreview && dendaPreview.denda > 0 && (
+          {/* INPUT KHUSUS: EDIT BESARAN DENDA SECARA MANUAL */}
+          <div className="p-3 bg-amber-50/70 border border-amber-300 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-900 flex items-center space-x-1.5 text-xs">
+                <Coins className="w-4 h-4 text-amber-600" />
+                <span>Nominal Denda Yang Ditagihkan (Bisa Diedit Manual)</span>
+              </label>
+              <span className="text-[10px] text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded">
+                Dapat disesuaikan
+              </span>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500">Rp</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={formData.denda}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setFormData({
+                    ...formData,
+                    denda: val,
+                    status_denda: val > 0 ? (formData.status_denda === 'Tanpa Denda' ? 'Lunas' : formData.status_denda) : 'Tanpa Denda'
+                  });
+                }}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/25 text-sm"
+                required
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] text-slate-500 font-semibold">Preset Cepat:</span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, denda: 0, status_denda: 'Tanpa Denda' })}
+                className="px-2 py-0.5 rounded text-[10px] font-bold border border-slate-300 bg-white hover:bg-slate-100 text-slate-700"
+              >
+                Bebaskan Denda (Rp 0)
+              </button>
+              {dendaPreview && dendaPreview.denda > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, denda: dendaPreview.denda, status_denda: 'Lunas' })}
+                  className="px-2 py-0.5 rounded text-[10px] font-bold border border-amber-400 bg-amber-100 hover:bg-amber-200 text-amber-900"
+                >
+                  Hitungan Standar ({formatRupiah(dendaPreview.denda)})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, denda: Number(formData.denda) + 5000 })}
+                className="px-2 py-0.5 rounded text-[10px] font-bold border border-slate-300 bg-white hover:bg-slate-100 text-slate-700"
+              >
+                + Rp 5.000 (Kerusakan)
+              </button>
+            </div>
+          </div>
+
+          {/* Opsi Metode Pembayaran jika Ada Denda */}
+          {Number(formData.denda) > 0 && (
             <div>
               <label className="block font-bold text-slate-800 mb-1">Metode & Status Pembayaran Denda</label>
               <div className="grid grid-cols-3 gap-1.5">
@@ -516,28 +717,165 @@ export default function PengembalianPage({ showNotification, initialLoanCode = n
         </form>
       </Modal>
 
+      {/* MODAL 2: EDIT BESARAN DENDA PADA REKAMAN PENGEMBALIAN TERTENTU */}
+      <Modal
+        isOpen={isEditDendaModalOpen}
+        onClose={() => setIsEditDendaModalOpen(false)}
+        title="Edit Besaran Denda Transaksi Pengembalian"
+      >
+        {selectedReturnForEdit && (
+          <form onSubmit={handleSubmitEditDenda} className="space-y-4 text-xs">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex justify-between font-bold text-slate-900">
+                <span>{selectedReturnForEdit.kd_pengembalian}</span>
+                <span className="font-mono text-slate-600">Pinjam: {selectedReturnForEdit.kd_peminjaman}</span>
+              </div>
+              <p className="text-slate-600 mt-1">
+                Peminjam: <strong className="text-slate-900">{selectedReturnForEdit.peminjaman?.nama_anggota || '-'}</strong>
+              </p>
+              <p className="text-slate-600">
+                Buku: {selectedReturnForEdit.peminjaman?.buku?.judul_buku || '-'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-800 mb-1">Besaran Nominal Denda (Rp)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500">Rp</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={editDendaForm.denda}
+                  onChange={(e) => setEditDendaForm({ ...editDendaForm, denda: Number(e.target.value) })}
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-800 mb-1">Status Denda</label>
+              <select
+                value={editDendaForm.status_denda}
+                onChange={(e) => setEditDendaForm({ ...editDendaForm, status_denda: e.target.value })}
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+              >
+                <option value="Lunas">✓ Lunas (Telah Dibayar)</option>
+                <option value="Tertunggak">⚠ Tertunggak (Belum Dibayar)</option>
+                <option value="Tanpa Denda">Tanpa Denda (Bebas Biaya)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-800 mb-1">Catatan / Alasan Penyesuaian</label>
+              <input
+                type="text"
+                value={editDendaForm.keterangan}
+                onChange={(e) => setEditDendaForm({ ...editDendaForm, keterangan: e.target.value })}
+                placeholder="Contoh: Dispensasi keterlambatan izin sakit / denda buku rusak"
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900"
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100 mt-4">
+              <button
+                type="button"
+                onClick={() => setIsEditDendaModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-bold"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={submittingEditDenda}
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-md shadow-amber-600/25 disabled:opacity-50"
+              >
+                {submittingEditDenda ? 'Menyimpan...' : 'Simpan Perubahan Denda'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* MODAL 3: EDIT TARIF DENDA GLOBAL CEPAT */}
+      <Modal
+        isOpen={isTarifModalOpen}
+        onClose={() => setIsTarifModalOpen(false)}
+        title="Pengaturan Besaran Tarif Denda Global"
+      >
+        <form onSubmit={handleSaveTarifGlobal} className="space-y-4 text-xs">
+          <p className="text-slate-500 text-[11px]">
+            Pengaturan ini mengatur tarif denda per hari per buku pada tabel master <strong className="text-slate-800">tb_pengaturan</strong> MySQL dan langsung berdampak ke perhitungan denda sirkulasi.
+          </p>
+
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Besaran Tarif Denda Keterlambatan (Rp / Hari / Buku)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500">Rp</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={tempTarif}
+                onChange={(e) => setTempTarif(Number(e.target.value))}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/25 text-sm"
+                required
+              />
+            </div>
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              {[0, 500, 1000, 2000, 5000, 10000].map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setTempTarif(val)}
+                  className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold ${
+                    tempTarif === val ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {val === 0 ? 'Bebas Denda (Rp 0)' : `Rp ${val.toLocaleString('id-ID')}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100 mt-4">
+            <button
+              type="button"
+              onClick={() => setIsTarifModalOpen(false)}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-bold"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={submittingTarif}
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md shadow-emerald-600/25 disabled:opacity-50"
+            >
+              {submittingTarif ? 'Menyimpan...' : 'Simpan Tarif Denda'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Kwitansi Resmi Pelunasan Denda */}
+      <KwitansiDendaModal
+        isOpen={Boolean(receiptData)}
+        onClose={() => setReceiptData(null)}
+        data={receiptData}
+      />
+
       {/* Modal Payment Gateway Interaktif (QRIS & Virtual Account) */}
       <PaymentGatewayModal
         isOpen={Boolean(gatewayData)}
         onClose={() => setGatewayData(null)}
         data={gatewayData}
-        onSuccess={(result) => {
-          showNotification('Pembayaran denda via Payment Gateway berhasil diverifikasi!', 'success');
-          setReceiptData({
-            ...gatewayData,
-            status_denda: 'Lunas',
-            metode_pembayaran: result.metode_pembayaran,
-            id_transaksi_gateway: result.order_id
-          });
+        onSuccess={() => {
+          showNotification('Pembayaran denda via Gateway berhasil diverifikasi!', 'success');
           fetchData();
         }}
-      />
-
-      {/* Modal Cetak Kwitansi Denda Resmi */}
-      <KwitansiDendaModal
-        isOpen={Boolean(receiptData)}
-        onClose={() => setReceiptData(null)}
-        data={receiptData}
       />
     </div>
   );

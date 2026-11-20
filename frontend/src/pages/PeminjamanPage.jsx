@@ -10,7 +10,13 @@ import {
   Book,
   CheckCircle2,
   AlertCircle,
-  MessageCircle
+  MessageCircle,
+  Clock,
+  Coins,
+  Settings,
+  CalendarPlus,
+  ShieldCheck,
+  CreditCard
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import PaymentGatewayModal from '../components/PaymentGatewayModal';
@@ -24,53 +30,17 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [extendingCode, setExtendingCode] = useState(null);
   const [gatewayData, setGatewayData] = useState(null);
-  const [extensionFee, setExtensionFee] = useState(2000);
 
-  useEffect(() => {
-    api.getPengaturan().then(res => {
-      if (res?.data?.biaya_perpanjangan !== undefined) {
-        setExtensionFee(Number(res.data.biaya_perpanjangan));
-      }
-    }).catch(() => {});
-  }, []);
+  // Settings State
+  const [settings, setSettings] = useState({
+    tarif_denda: 1000,
+    durasi_pinjam: 7,
+    durasi_perpanjangan: 7,
+    biaya_perpanjangan: 2000
+  });
 
-  const handleExtendLoan = async (item) => {
-    if (extensionFee > 0) {
-      setGatewayData({
-        ...item,
-        denda: extensionFee,
-        nama_siswa: item.nama_anggota,
-        isPerpanjang: true,
-        judul_transaksi: 'Biaya Administrasi Perpanjang Pinjaman (+7 Hari)',
-        label_nominal: 'Biaya Layanan Perpanjangan'
-      });
-      return;
-    }
-
-    setExtendingCode(item.kd_peminjaman);
-    try {
-      const res = await api.perpanjangPeminjaman(item.kd_peminjaman);
-      showNotification(res.message || 'Masa pinjam berhasil diperpanjang +7 hari!', 'success');
-      fetchData();
-    } catch (err) {
-      showNotification('Gagal memperpanjang: ' + (err.response?.data?.message || err.message), 'error');
-    } finally {
-      setExtendingCode(null);
-    }
-  };
-
-  const getDaysUntilDue = (tempoStr) => {
-    if (!tempoStr) return 999;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tempo = new Date(tempoStr);
-    tempo.setHours(0, 0, 0, 0);
-    return Math.ceil((tempo - today) / (1000 * 60 * 60 * 24));
-  };
-
-  // Modal State
+  // Modal Tambah Peminjaman
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     kd_peminjaman: '',
@@ -80,6 +50,49 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
     durasi_hari: 7,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Modal Perpanjang Masa Pinjam Khusus
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
+  const [selectedLoanForExtend, setSelectedLoanForExtend] = useState(null);
+  const [extendForm, setExtendForm] = useState({
+    hari_tambahan: 7,
+    tgl_jatuh_tempo_baru: '',
+    biaya_perpanjangan: 0,
+    metode_pembayaran: 'Tunai di Loket',
+    force: false,
+    catatan: ''
+  });
+  const [submittingExtend, setSubmittingExtend] = useState(false);
+
+  // Modal Edit Tarif Denda & Kebijakan Sirkulasi Cepat
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [tempSettings, setTempSettings] = useState({
+    tarif_denda: 1000,
+    durasi_pinjam: 7,
+    durasi_perpanjangan: 7,
+    biaya_perpanjangan: 2000
+  });
+  const [submittingSettings, setSubmittingSettings] = useState(false);
+
+  const loadSettings = async () => {
+    try {
+      const res = await api.getPengaturan();
+      if (res?.data) {
+        setSettings({
+          tarif_denda: Number(res.data.tarif_denda ?? 1000),
+          durasi_pinjam: Number(res.data.durasi_pinjam ?? 7),
+          durasi_perpanjangan: Number(res.data.durasi_perpanjangan ?? 7),
+          biaya_perpanjangan: Number(res.data.biaya_perpanjangan ?? 2000)
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -108,8 +121,19 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
     fetchData();
   }, [search, statusFilter]);
 
+  const getDaysUntilDue = (tempoStr) => {
+    if (!tempoStr) return 999;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tempo = new Date(tempoStr);
+    tempo.setHours(0, 0, 0, 0);
+    return Math.ceil((tempo - today) / (1000 * 60 * 60 * 24));
+  };
+
+  // --- HANDLER MODAL TAMBAH PINJAM ---
   const handleOpenAdd = async () => {
     await loadBukuOptions();
+    const defaultDuration = settings.durasi_pinjam || 7;
     try {
       const nextCode = await api.generateKodePeminjaman();
       setFormData({
@@ -117,7 +141,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
         kd_buku: bukuOptions[0]?.kd_buku || '',
         nama_anggota: '',
         tgl_peminjaman: new Date().toISOString().split('T')[0],
-        durasi_hari: 7,
+        durasi_hari: defaultDuration,
       });
     } catch {
       setFormData({
@@ -125,7 +149,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
         kd_buku: '',
         nama_anggota: '',
         tgl_peminjaman: new Date().toISOString().split('T')[0],
-        durasi_hari: 7,
+        durasi_hari: defaultDuration,
       });
     }
     setIsModalOpen(true);
@@ -147,6 +171,118 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
       showNotification('Gagal mencatat peminjaman: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // --- HANDLER MODAL PERPANJANG MASA PINJAM ---
+  const handleOpenExtendModal = (item) => {
+    const defaultDays = settings.durasi_perpanjangan || 7;
+    const baseDate = new Date(item.tgl_jatuh_tempo || new Date());
+    const newDate = new Date(baseDate.getTime() + defaultDays * 86400000);
+    const newTempoStr = newDate.toISOString().split('T')[0];
+
+    setSelectedLoanForExtend(item);
+    setExtendForm({
+      hari_tambahan: defaultDays,
+      tgl_jatuh_tempo_baru: newTempoStr,
+      biaya_perpanjangan: settings.biaya_perpanjangan ?? 0,
+      metode_pembayaran: (settings.biaya_perpanjangan > 0) ? 'Tunai di Loket' : 'Gratis / Bebas Biaya',
+      force: (item.perpanjangan_count || 0) >= 1 || item.status === 'Terlambat',
+      catatan: ''
+    });
+    setIsExtendModalOpen(true);
+  };
+
+  const handlePresetDays = (days) => {
+    if (!selectedLoanForExtend) return;
+    const baseDate = new Date(selectedLoanForExtend.tgl_jatuh_tempo || new Date());
+    const newDate = new Date(baseDate.getTime() + days * 86400000);
+    setExtendForm(prev => ({
+      ...prev,
+      hari_tambahan: days,
+      tgl_jatuh_tempo_baru: newDate.toISOString().split('T')[0]
+    }));
+  };
+
+  const handleCustomDateChange = (newDateStr) => {
+    if (!selectedLoanForExtend || !newDateStr) return;
+    const baseDate = new Date(selectedLoanForExtend.tgl_jatuh_tempo || new Date());
+    const newDate = new Date(newDateStr);
+    const diffDays = Math.max(1, Math.round((newDate - baseDate) / 86400000));
+    setExtendForm(prev => ({
+      ...prev,
+      tgl_jatuh_tempo_baru: newDateStr,
+      hari_tambahan: diffDays
+    }));
+  };
+
+  const handleSubmitExtend = async (e) => {
+    e.preventDefault();
+    if (!selectedLoanForExtend) return;
+
+    // Jika metode QRIS dan ada biaya, arahkan ke PaymentGatewayModal
+    if (extendForm.metode_pembayaran === 'QRIS Digital' && Number(extendForm.biaya_perpanjangan) > 0) {
+      setGatewayData({
+        ...selectedLoanForExtend,
+        denda: Number(extendForm.biaya_perpanjangan),
+        nama_siswa: selectedLoanForExtend.nama_anggota,
+        isPerpanjang: true,
+        judul_transaksi: `Biaya Perpanjang Masa Pinjam (+${extendForm.hari_tambahan} Hari)`,
+        label_nominal: 'Biaya Layanan Perpanjangan',
+        extendPayload: {
+          hari_tambahan: extendForm.hari_tambahan,
+          tgl_jatuh_tempo_baru: extendForm.tgl_jatuh_tempo_baru,
+          biaya_perpanjangan: Number(extendForm.biaya_perpanjangan),
+          metode_pembayaran: 'QRIS Digital',
+          force: extendForm.force
+        }
+      });
+      setIsExtendModalOpen(false);
+      return;
+    }
+
+    setSubmittingExtend(true);
+    try {
+      const res = await api.perpanjangPeminjaman(selectedLoanForExtend.kd_peminjaman, {
+        hari_tambahan: extendForm.hari_tambahan,
+        tgl_jatuh_tempo_baru: extendForm.tgl_jatuh_tempo_baru,
+        biaya_perpanjangan: Number(extendForm.biaya_perpanjangan),
+        metode_pembayaran: extendForm.metode_pembayaran,
+        force: extendForm.force
+      });
+      showNotification(res.message || 'Masa pinjam berhasil diperpanjang!', 'success');
+      setIsExtendModalOpen(false);
+      fetchData();
+    } catch (err) {
+      showNotification('Gagal memperpanjang: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setSubmittingExtend(false);
+    }
+  };
+
+  // --- HANDLER MODAL CEPAT ATUR TARIF DENDA & MASA PINJAM ---
+  const handleOpenSettingsModal = () => {
+    setTempSettings({ ...settings });
+    setIsSettingsModalOpen(true);
+  };
+
+  const handleSaveQuickSettings = async (e) => {
+    e.preventDefault();
+    setSubmittingSettings(true);
+    try {
+      await api.updatePengaturan({
+        tarif_denda: Number(tempSettings.tarif_denda),
+        durasi_pinjam: Number(tempSettings.durasi_pinjam),
+        durasi_perpanjangan: Number(tempSettings.durasi_perpanjangan),
+        biaya_perpanjangan: Number(tempSettings.biaya_perpanjangan)
+      });
+      setSettings({ ...tempSettings });
+      showNotification('Konfigurasi tarif denda & masa pinjam berhasil disimpan!', 'success');
+      setIsSettingsModalOpen(false);
+    } catch (err) {
+      showNotification('Gagal menyimpan: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setSubmittingSettings(false);
     }
   };
 
@@ -176,27 +312,46 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
         </div>
       )}
 
-      {/* Header Halaman */}
+      {/* Header Halaman dengan Tombol Tambah & Tombol Cepat Atur Denda/Masa Pinjam */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 flex items-center space-x-2">
             <ArrowUpRight className="w-5 h-5 text-amber-500" />
             <span>{roleCode === 'petugas_sirkulasi' ? 'Loket Pelayanan Peminjaman Siswa' : 'Sirkulasi: Transaksi Peminjaman Buku'}</span>
           </h2>
-          <p className="text-xs text-slate-600 font-medium mt-1">
-            Pencatatan sirkulasi peminjaman siswa SMA Muhammadiyah Pekalongan
-          </p>
+          <div className="flex items-center space-x-3 mt-1 text-xs text-slate-600 font-medium flex-wrap">
+            <span>Pencatatan sirkulasi peminjaman siswa SMA Muhammadiyah 1 Pekalongan</span>
+            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono text-[11px] font-bold border border-slate-200">
+              <Coins className="w-3 h-3 text-amber-600" />
+              <span>Denda: Rp {settings.tarif_denda.toLocaleString('id-ID')}/hari</span>
+              <span className="text-slate-300">•</span>
+              <Clock className="w-3 h-3 text-blue-600" />
+              <span>Masa Pinjam: {settings.durasi_pinjam} Hari</span>
+            </span>
+          </div>
         </div>
 
-        {roleCode !== 'kepala_sekolah' && (
+        <div className="flex items-center space-x-2 self-start sm:self-auto flex-wrap gap-y-2">
+          {/* Tombol Pintas: Edit Tarif Denda & Masa Pinjam */}
           <button
-            onClick={handleOpenAdd}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all self-start sm:self-auto focus-visible:ring-2 focus-visible:ring-emerald-500"
+            onClick={handleOpenSettingsModal}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-300 transition-all shadow-xs"
+            title="Ubah tarif denda harian dan durasi standar peminjaman/perpanjangan"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Transaksi Pinjam Baru</span>
+            <Settings className="w-3.5 h-3.5 text-slate-700" />
+            <span>⚙️ Atur Tarif Denda & Durasi Pinjam</span>
           </button>
-        )}
+
+          {roleCode !== 'kepala_sekolah' && (
+            <button
+              onClick={handleOpenAdd}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Pinjam Buku Baru</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
@@ -258,7 +413,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
                 <th className="py-3.5 px-4">Tgl Pinjam</th>
                 <th className="py-3.5 px-4">Jatuh Tempo</th>
                 <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Aksi</th>
+                <th className="py-3.5 px-4 text-right">Aksi Sirkulasi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -288,7 +443,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
                     <td className="py-3.5 px-4 font-bold text-slate-800">
                       <div>{formatDateIndo(item.tgl_jatuh_tempo)}</div>
                       {(item.perpanjangan_count || 0) > 0 && (
-                        <span className="text-[10px] text-blue-600 font-semibold">(Diperpanjang 1x)</span>
+                        <span className="text-[10px] text-blue-600 font-semibold">(Diperpanjang {item.perpanjangan_count}x)</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4">
@@ -331,21 +486,16 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
                         </span>
                       ) : item.status !== 'Dikembalikan' ? (
                         <>
-                          {/* Tombol Perpanjang +7 Hari (Jika belum terlambat dan belum pernah diperpanjang) */}
-                          {item.status === 'Dipinjam' && (item.perpanjangan_count || 0) < 1 && (
-                            <button
-                              onClick={() => handleExtendLoan(item)}
-                              disabled={extendingCode === item.kd_peminjaman}
-                              title={extensionFee > 0 ? `Perpanjang batas waktu pinjam +7 hari (Biaya: Rp ${extensionFee.toLocaleString('id-ID')})` : 'Perpanjang batas waktu pinjam +7 hari'}
-                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
-                            >
-                              {extendingCode === item.kd_peminjaman 
-                                ? '...' 
-                                : extensionFee > 0 
-                                  ? `+7 Hari (Rp ${extensionFee.toLocaleString('id-ID')})` 
-                                  : '+7 Hari'}
-                            </button>
-                          )}
+                          {/* Tombol Interaktif: Perpanjang Masa Pinjam */}
+                          <button
+                            onClick={() => handleOpenExtendModal(item)}
+                            title="Buka dialog formulir perpanjangan masa pinjam buku"
+                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold transition-colors inline-flex items-center space-x-1 focus-visible:ring-2 focus-visible:ring-blue-500"
+                          >
+                            <CalendarPlus className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Perpanjang</span>
+                          </button>
+
                           {/* Tombol Pengingat WhatsApp (Khusus Terlambat / H-1) */}
                           {(item.status === 'Terlambat' || getDaysUntilDue(item.tgl_jatuh_tempo) <= 1) && (
                             <button
@@ -357,6 +507,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
                               <span>Ingatkan WA</span>
                             </button>
                           )}
+
                           <button
                             onClick={() => onNavigateToReturn && onNavigateToReturn(item.kd_peminjaman)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -382,7 +533,320 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
         </div>
       </div>
 
-      {/* Modal Form Tambah Peminjaman */}
+      {/* MODAL 1: PERPANJANG MASA PINJAM INTERAKTIF */}
+      <Modal
+        isOpen={isExtendModalOpen}
+        onClose={() => setIsExtendModalOpen(false)}
+        title="Formulir Perpanjangan Masa Pinjam Buku"
+      >
+        {selectedLoanForExtend && (
+          <form onSubmit={handleSubmitExtend} className="space-y-4 text-xs">
+            {/* Info Transaksi yang Sedang Diperpanjang */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-900 font-mono text-sm">{selectedLoanForExtend.kd_peminjaman}</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  selectedLoanForExtend.status === 'Terlambat' 
+                    ? 'bg-rose-100 text-rose-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  Status: {selectedLoanForExtend.status}
+                </span>
+              </div>
+              <div className="text-slate-700">
+                <span className="text-slate-500">Peminjam:</span> <strong className="text-slate-900">{selectedLoanForExtend.nama_anggota}</strong>
+              </div>
+              <div className="text-slate-700">
+                <span className="text-slate-500">Buku:</span> <strong className="text-slate-900">{selectedLoanForExtend.buku?.judul_buku || selectedLoanForExtend.kd_buku}</strong>
+              </div>
+              <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-200/70 text-[11px]">
+                <span>Mulai Pinjam: {formatDateIndo(selectedLoanForExtend.tgl_peminjaman)}</span>
+                <span>Jatuh Tempo Saat Ini: <strong className="text-slate-800">{formatDateIndo(selectedLoanForExtend.tgl_jatuh_tempo)}</strong></span>
+              </div>
+            </div>
+
+            {/* Pilihan Cepat Tambahan Hari */}
+            <div>
+              <label className="block font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>Pilihan Durasi Tambahan Hari:</span>
+                <span className="text-[11px] font-mono text-blue-700 font-bold">
+                  +{extendForm.hari_tambahan} Hari
+                </span>
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[3, 7, 14, 30].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => handlePresetDays(days)}
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-bold border transition-all ${
+                      extendForm.hari_tambahan === days
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    +{days} Hari {days === 7 ? '★' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Input Tanggal Jatuh Tempo Baru */}
+            <div>
+              <label className="block font-bold text-slate-800 mb-1">
+                Tanggal Jatuh Tempo Baru (Hasil Perpanjangan):
+              </label>
+              <div className="relative">
+                <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input
+                  type="date"
+                  value={extendForm.tgl_jatuh_tempo_baru}
+                  onChange={(e) => handleCustomDateChange(e.target.value)}
+                  min={selectedLoanForExtend.tgl_jatuh_tempo || new Date().toISOString().split('T')[0]}
+                  required
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Tanggal jatuh tempo baru: <strong className="text-blue-700">{formatDateIndo(extendForm.tgl_jatuh_tempo_baru)}</strong>
+              </p>
+            </div>
+
+            {/* Biaya Administrasi Perpanjangan */}
+            <div>
+              <label className="block font-bold text-slate-800 mb-1 flex items-center justify-between">
+                <span>Biaya Administrasi Perpanjangan (Rp):</span>
+                <span className="text-[10px] text-slate-500">Bisa diisi 0 jika bebas biaya</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500">Rp</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={extendForm.biaya_perpanjangan}
+                  onChange={(e) => setExtendForm({ ...extendForm, biaya_perpanjangan: Number(e.target.value) })}
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                />
+              </div>
+              <div className="flex gap-2 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setExtendForm({ ...extendForm, biaya_perpanjangan: 0, metode_pembayaran: 'Gratis / Bebas Biaya' })}
+                  className="text-[10px] px-2 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold text-slate-700"
+                >
+                  Set Gratis (Rp 0)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtendForm({ ...extendForm, biaya_perpanjangan: 1000, metode_pembayaran: 'Tunai di Loket' })}
+                  className="text-[10px] px-2 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold text-slate-700"
+                >
+                  Rp 1.000
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtendForm({ ...extendForm, biaya_perpanjangan: 2000, metode_pembayaran: 'Tunai di Loket' })}
+                  className="text-[10px] px-2 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 font-bold text-slate-700"
+                >
+                  Rp 2.000 (Standar)
+                </button>
+              </div>
+            </div>
+
+            {/* Pilihan Metode Pembayaran Biaya Perpanjangan (Jika Biaya > 0) */}
+            {Number(extendForm.biaya_perpanjangan) > 0 && (
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">Metode Pembayaran Biaya:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExtendForm({ ...extendForm, metode_pembayaran: 'Tunai di Loket' })}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-all ${
+                      extendForm.metode_pembayaran === 'Tunai di Loket'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    💵 Tunai di Loket
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExtendForm({ ...extendForm, metode_pembayaran: 'QRIS Digital' })}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-all ${
+                      extendForm.metode_pembayaran === 'QRIS Digital'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    💳 Scan QRIS Digital
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Checkbox Dispensasi Petugas */}
+            {((selectedLoanForExtend.perpanjangan_count || 0) >= 1 || selectedLoanForExtend.status === 'Terlambat') && (
+              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 flex items-start space-x-2">
+                <input
+                  type="checkbox"
+                  id="forceOverride"
+                  checked={extendForm.force}
+                  onChange={(e) => setExtendForm({ ...extendForm, force: e.target.checked })}
+                  className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+                />
+                <label htmlFor="forceOverride" className="text-[11px] text-amber-950 font-medium">
+                  <strong>Otorisasi Petugas Sirkulasi:</strong> Berikan dispensasi perpanjangan khusus meskipun transaksi sudah pernah diperpanjang atau berstatus terlambat.
+                </label>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100 mt-4">
+              <button
+                type="button"
+                onClick={() => setIsExtendModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-bold"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={submittingExtend}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-600/25 disabled:opacity-50 flex items-center space-x-1.5"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>{submittingExtend ? 'Menyimpan...' : 'Perpanjang Sekarang'}</span>
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* MODAL 2: EDIT TARIF DENDA & MASA PINJAM CEPAT (GLOBAL SETTINGS) */}
+      <Modal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        title="Pengaturan Besaran Denda & Kebijakan Masa Pinjam"
+      >
+        <form onSubmit={handleSaveQuickSettings} className="space-y-4 text-xs">
+          <p className="text-slate-500 text-[11px]">
+            Perubahan konfigurasi ini disimpan langsung ke tabel master <strong className="text-slate-800">tb_pengaturan</strong> di database MySQL dan langsung berlaku pada kalkulasi denda transaksi baru.
+          </p>
+
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Besaran Tarif Denda Keterlambatan (Rp / Hari / Buku)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500">Rp</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={tempSettings.tarif_denda}
+                onChange={(e) => setTempSettings({ ...tempSettings, tarif_denda: Number(e.target.value) })}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
+                required
+              />
+            </div>
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              {[0, 500, 1000, 2000, 5000].map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setTempSettings({ ...tempSettings, tarif_denda: val })}
+                  className={`text-[10px] px-2 py-0.5 rounded border ${
+                    tempSettings.tarif_denda === val ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {val === 0 ? 'Gratis' : `Rp ${val.toLocaleString('id-ID')}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Batas Waktu Standar Peminjaman (Hari)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={tempSettings.durasi_pinjam}
+              onChange={(e) => setTempSettings({ ...tempSettings, durasi_pinjam: Number(e.target.value) })}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
+              required
+            />
+            <div className="flex gap-1.5 mt-1.5">
+              {[3, 7, 10, 14, 30].map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setTempSettings({ ...tempSettings, durasi_pinjam: val })}
+                  className={`text-[10px] px-2 py-0.5 rounded border ${
+                    tempSettings.durasi_pinjam === val ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {val} Hari
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Durasi Tambahan Saat Perpanjang (Hari)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={tempSettings.durasi_perpanjangan}
+              onChange={(e) => setTempSettings({ ...tempSettings, durasi_perpanjangan: Number(e.target.value) })}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Biaya Administrasi Perpanjangan (Rp)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500">Rp</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={tempSettings.biaya_perpanjangan}
+                onChange={(e) => setTempSettings({ ...tempSettings, biaya_perpanjangan: Number(e.target.value) })}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100 mt-4">
+            <button
+              type="button"
+              onClick={() => setIsSettingsModalOpen(false)}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-bold"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={submittingSettings}
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md shadow-emerald-600/25 disabled:opacity-50"
+            >
+              {submittingSettings ? 'Menyimpan...' : 'Simpan Konfigurasi'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL 3: FORM TAMBAH PEMINJAMAN BARU */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -456,7 +920,7 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
               <input
                 type="number"
                 min={1}
-                max={30}
+                max={60}
                 value={formData.durasi_hari}
                 onChange={(e) => setFormData({ ...formData, durasi_hari: parseInt(e.target.value) || 7 })}
                 required
@@ -498,11 +962,14 @@ export default function PeminjamanPage({ showNotification, onNavigateToReturn, u
         onSuccess={async (result) => {
           try {
             const res = await api.perpanjangPeminjaman(gatewayData.kd_peminjaman, {
+              hari_tambahan: gatewayData.extendPayload?.hari_tambahan || 7,
+              tgl_jatuh_tempo_baru: gatewayData.extendPayload?.tgl_jatuh_tempo_baru,
               biaya_perpanjangan: result.nominal,
               metode_pembayaran: result.metode_pembayaran,
-              id_transaksi: result.order_id
+              id_transaksi: result.order_id,
+              force: gatewayData.extendPayload?.force || false
             });
-            showNotification(res.message || 'Masa pinjam berhasil diperpanjang +7 hari!', 'success');
+            showNotification(res.message || 'Masa pinjam berhasil diperpanjang!', 'success');
             fetchData();
           } catch (err) {
             showNotification('Gagal memperpanjang: ' + (err.response?.data?.message || err.message), 'error');

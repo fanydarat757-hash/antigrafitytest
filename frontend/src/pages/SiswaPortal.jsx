@@ -34,11 +34,15 @@ export default function SiswaPortal({ user, onLogout, onUpdateUser }) {
   const [extendingId, setExtendingId] = useState(null);
   const [selectedGatewayLoan, setSelectedGatewayLoan] = useState(null);
   const [extensionFee, setExtensionFee] = useState(2000);
+  const [extensionDays, setExtensionDays] = useState(7);
 
   useEffect(() => {
     api.getPengaturan().then(res => {
       if (res?.data?.biaya_perpanjangan !== undefined) {
         setExtensionFee(Number(res.data.biaya_perpanjangan));
+      }
+      if (res?.data?.durasi_perpanjangan !== undefined) {
+        setExtensionDays(Number(res.data.durasi_perpanjangan));
       }
     }).catch(() => {});
   }, []);
@@ -50,7 +54,7 @@ export default function SiswaPortal({ user, onLogout, onUpdateUser }) {
         denda: extensionFee,
         nama_siswa: user.nama,
         isPerpanjang: true,
-        judul_transaksi: 'Biaya Administrasi Perpanjang Pinjaman (+7 Hari)',
+        judul_transaksi: `Biaya Administrasi Perpanjang Pinjaman (+${extensionDays} Hari)`,
         label_nominal: 'Biaya Administrasi Perpanjangan'
       });
       return;
@@ -58,8 +62,10 @@ export default function SiswaPortal({ user, onLogout, onUpdateUser }) {
 
     setExtendingId(loan.kd_peminjaman);
     try {
-      const res = await api.perpanjangPeminjaman(loan.kd_peminjaman);
-      setFeedbackToast(res.message || 'Masa pinjam berhasil diperpanjang +7 hari!');
+      const res = await api.perpanjangPeminjaman(loan.kd_peminjaman, {
+        hari_tambahan: extensionDays
+      });
+      setFeedbackToast(res.message || `Masa pinjam berhasil diperpanjang +${extensionDays} hari!`);
       setTimeout(() => setFeedbackToast(''), 4500);
       loadData();
     } catch (err) {
@@ -509,8 +515,8 @@ export default function SiswaPortal({ user, onLogout, onUpdateUser }) {
                               {extendingId === loan.kd_peminjaman 
                                 ? 'Memproses...' 
                                 : extensionFee > 0 
-                                  ? `+ Perpanjang (+7 Hari) • Rp ${extensionFee.toLocaleString('id-ID')}` 
-                                  : '+ Perpanjang (+7 Hari)'}
+                                  ? `+ Perpanjang (+${extensionDays} Hari) • Rp ${extensionFee.toLocaleString('id-ID')}` 
+                                  : `+ Perpanjang (+${extensionDays} Hari)`}
                             </span>
                           </button>
                         )}
