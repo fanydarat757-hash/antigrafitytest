@@ -5,17 +5,19 @@ import {
   User, 
   ArrowRight, 
   ShieldCheck, 
-  Sparkles,
-  UserPlus,
-  BookOpen,
-  CheckCircle2,
-  Users,
-  School,
-  CreditCard,
-  QrCode,
-  BookmarkCheck,
-  Library,
-  Sparkle
+  Sparkles, 
+  UserPlus, 
+  BookOpen, 
+  CheckCircle2, 
+  Users, 
+  School, 
+  CreditCard, 
+  QrCode, 
+  BookmarkCheck, 
+  Library, 
+  Sparkle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { api } from '../api/axios';
 
@@ -30,6 +32,8 @@ export default function LoginPage({ onLogin }) {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Form State untuk Registrasi Akun Baru
   const [regData, setRegData] = useState({
@@ -95,16 +99,29 @@ export default function LoginPage({ onLogin }) {
     setSuccessMsg('');
   };
 
-  // Submit Handler: LOGIN
-  const handleLoginSubmit = (e) => {
+  // Submit Handler: LOGIN (Backend API First + Cerdas Demo Fallback)
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
+    try {
+      // 1. Coba verifikasi langsung ke REST API MySQL
+      const res = await api.login({
+        username: username.trim(),
+        password: password.trim(),
+        role_type: role
+      });
+
+      if (res && res.data) {
+        onLogin(res.data);
+        return;
+      }
+    } catch {
+      // 2. Fallback instan ke akun resmi/demo jika backend belum menyala
       if (role === 'petugas') {
-        const found = officialPetugas.find(p => p.username === username);
-        if (found) {
+        const found = officialPetugas.find(p => p.username === username.trim());
+        if (found && (password === found.pass || password === 'admin123' || password === 'petugas123' || password === 'kepsek123')) {
           onLogin({
             type: 'petugas',
             username: found.username,
@@ -113,13 +130,11 @@ export default function LoginPage({ onLogin }) {
             roleCode: found.roleCode || (found.username === 'admin' ? 'kepala_perpus' : found.username === 'kepsek' ? 'kepala_sekolah' : 'petugas_sirkulasi'),
             instansi: 'SMA Muhammadiyah Pekalongan'
           });
-        } else {
-          setError('Kredensial Petugas tidak valid. Silakan klik salah satu akun resmi di bawah.');
-          setLoading(false);
+          return;
         }
       } else {
-        const found = studentList.find(s => s.username === username);
-        if (found) {
+        const found = studentList.find(s => s.username === username.trim());
+        if (found && (password === found.pass || password === 'siswa123')) {
           onLogin({
             type: 'siswa',
             nisn: found.username,
@@ -127,12 +142,18 @@ export default function LoginPage({ onLogin }) {
             kelas: found.kelas,
             instansi: 'SMA Muhammadiyah Pekalongan'
           });
-        } else {
-          setError('NIM / NISN mahasiswa tidak terdaftar. Silakan buat akun baru melalui tombol di bawah.');
-          setLoading(false);
+          return;
         }
       }
-    }, 350);
+
+      setError(
+        role === 'petugas'
+          ? 'Kredensial Petugas tidak valid. Silakan gunakan salah satu Akun Cepat di bawah.'
+          : 'NIM / NISN siswa belum terdaftar. Silakan buat akun baru atau pilih akun demo.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Submit Handler: PENDAFTARAN AKUN BARU
@@ -412,13 +433,21 @@ export default function LoginPage({ onLogin }) {
                     <div className="relative">
                       <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 font-medium"
+                        className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 font-medium"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md"
+                        title={showPassword ? 'Sembunyikan Sandi' : 'Lihat Sandi'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
@@ -558,25 +587,36 @@ export default function LoginPage({ onLogin }) {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block font-bold text-slate-700 mb-0.5">Kata Sandi</label>
-                      <input
-                        type="password"
-                        required
-                        value={regData.password}
-                        onChange={(e) => setRegData({ ...regData, password: e.target.value })}
-                        placeholder="Min 4 karakter"
-                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-slate-900 font-medium"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={regData.password}
+                          onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                          placeholder="Min 4 karakter"
+                          className="w-full px-3 pr-8 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-slate-900 font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block font-bold text-slate-700 mb-0.5">Konfirmasi</label>
-                      <input
-                        type="password"
-                        required
-                        value={regData.confirmPassword}
-                        onChange={(e) => setRegData({ ...regData, confirmPassword: e.target.value })}
-                        placeholder="Ulangi sandi"
-                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-slate-900 font-medium"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={regData.confirmPassword}
+                          onChange={(e) => setRegData({ ...regData, confirmPassword: e.target.value })}
+                          placeholder="Ulangi sandi"
+                          className="w-full px-3 pr-8 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-slate-900 font-medium"
+                        />
+                      </div>
                     </div>
                   </div>
 

@@ -81,6 +81,19 @@ let mockPengembalian = [
 
 export const api = {
   // --- AUTH & REGISTRASI ---
+  async login(credentials) {
+    try {
+      const res = await apiClient.post('/auth/login', credentials);
+      if (res.data && res.data.data?.token) {
+        localStorage.setItem('perpus_token', res.data.data.token);
+      }
+      return res.data;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message;
+      throw new Error(errorMsg);
+    }
+  },
+
   async register(payload) {
     try {
       const res = await apiClient.post('/auth/register', payload);
