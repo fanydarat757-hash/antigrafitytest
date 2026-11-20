@@ -10,7 +10,12 @@ import {
   BookOpen,
   CheckCircle2,
   Users,
-  School
+  School,
+  CreditCard,
+  QrCode,
+  BookmarkCheck,
+  Library,
+  Sparkle
 } from 'lucide-react';
 import { api } from '../api/axios';
 
@@ -182,23 +187,122 @@ export default function LoginPage({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-y-auto overflow-x-hidden font-sans">
       {/* 3D Modern Library Background (Format Lanskap 16:9) */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 scale-[1.02]"
         style={{ backgroundImage: `url('/library_3d_bg.jpg')` }}
       />
 
-      {/* Dark Overlay Layer (Efek Transparan Gelap agar Card Login Terlihat Jelas & Nyaman) */}
-      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1.5px]" />
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/70" />
+      {/* Dark Overlay Layer (Efek Transparan Gelap agar Teks & Card Terlihat Sangat Jelas) */}
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-slate-950/75 to-slate-900/60" />
 
       {/* Ambient Lighting Glow Orbs */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Main Container Card (Glassmorphism Elevated) */}
-      <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl shadow-black/60 border border-white/40 overflow-hidden relative z-10 animate-scale-up">
+      {/* Wrapper Utama Responsif: Desktop (2 Kolom berdampingan) & Mobile (1 Kolom terpusat) */}
+      <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-8 xl:gap-14 relative z-10 py-4 my-auto">
+        
+        {/* ================= SISI KIRI (KHUSUS DESKTOP): BRANDING & INFORMASI PERPUSTAKAAN ================= */}
+        <div className="hidden lg:flex flex-col flex-1 text-white space-y-6 max-w-xl animate-fade-in">
+          {/* Badge Instansi & Akreditasi */}
+          <div className="inline-flex items-center space-x-2.5 px-4 py-2 rounded-full bg-slate-900/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold backdrop-blur-md w-fit shadow-lg shadow-emerald-950/40">
+            <School className="w-4 h-4 text-emerald-400" />
+            <span>SMA Muhammadiyah 1 Pekalongan • Lampung Timur</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          </div>
+
+          {/* Heading Utama */}
+          <div className="space-y-3">
+            <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight text-white drop-shadow-md">
+              Sistem Otomasi & <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300">
+                Perpustakaan Digital Terpadu
+              </span>
+            </h1>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Pusat khazanah literatur digital, sirkulasi peminjaman mandiri, perpanjangan masa pinjam fleksibel, dan integrasi pembayaran denda multi-channel untuk mendukung kemajuan literasi sekolah.
+            </p>
+          </div>
+
+          {/* Kartu Fitur Unggulan */}
+          <div className="grid grid-cols-1 gap-3.5">
+            <div className="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-700/60 backdrop-blur-md hover:border-emerald-500/60 transition-all hover:bg-slate-900/90 shadow-md">
+              <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0 border border-emerald-500/30">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Katalog Buku & Modul Pelajaran</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">1.250+ Judul</span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  Pencarian cepat buku paket Kurikulum Merdeka, karya sastra, modul olimpiade, hingga ensiklopedia ilmiah.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-700/60 backdrop-blur-md hover:border-teal-500/60 transition-all hover:bg-slate-900/90 shadow-md">
+              <div className="p-2.5 rounded-xl bg-teal-500/20 text-teal-400 shrink-0 border border-teal-500/30">
+                <BookmarkCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Sirkulasi & Perpanjangan Fleksibel</span>
+                  <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full">Mandiri & Petugas</span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  Layanan pinjam-kembali kilat dengan barcode, notifikasi jatuh tempo otomatis, serta opsi perpanjangan +3 hingga +30 hari.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-700/60 backdrop-blur-md hover:border-cyan-500/60 transition-all hover:bg-slate-900/90 shadow-md">
+              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 shrink-0 border border-cyan-500/30">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Multi-Channel Pembayaran QRIS & Tunai</span>
+                  <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full">Real-time</span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  Dukungan pembayaran denda resmi melalui QRIS nasional (BCA, Mandiri, BRI, DANA, GoPay) maupun loket kasir tunai.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Baris Statistik Cepat */}
+          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs backdrop-blur-sm">
+            <div className="flex flex-col">
+              <span className="text-xl font-black text-emerald-400">1.250+</span>
+              <span className="text-slate-400 text-[11px] font-medium">Koleksi Terdaftar</span>
+            </div>
+            <div className="h-8 w-px bg-slate-800" />
+            <div className="flex flex-col">
+              <span className="text-xl font-black text-teal-400">450+</span>
+              <span className="text-slate-400 text-[11px] font-medium">Siswa & Guru Aktif</span>
+            </div>
+            <div className="h-8 w-px bg-slate-800" />
+            <div className="flex flex-col">
+              <span className="text-xl font-black text-cyan-400">100%</span>
+              <span className="text-slate-400 text-[11px] font-medium">Tercatat Digital</span>
+            </div>
+          </div>
+
+          {/* Kutipan Edukatif */}
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/40 via-slate-900/40 to-transparent border-l-4 border-emerald-500 text-xs text-slate-300 italic flex items-center space-x-2">
+            <Sparkle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>"Iqra' — Bacalah dengan nama Tuhanmu. Membaca membuka jendela ilmu dan mencerahkan masa depan."</span>
+          </div>
+        </div>
+
+        {/* ================= SISI KANAN: FORM CARD LOGIN & REGISTER ================= */}
+        <div className="w-full max-w-md lg:max-w-[440px] shrink-0">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl shadow-black/70 border border-white/40 overflow-hidden relative z-10 animate-scale-up">
         {/* Brand Header */}
         <div className="bg-[#1E293B] p-6 text-center text-white relative">
           <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 items-center justify-center text-white shadow-lg mb-3">
@@ -495,10 +599,12 @@ export default function LoginPage({ onLogin }) {
             </div>
           </div>
         )}
+        </div>
+        </div>
       </div>
 
-      <p className="text-slate-500 text-xs mt-6 text-center">
-        © 2026 Perpustakaan SMA Muhammadiyah Pekalongan, Lampung Timur
+      <p className="text-slate-400 text-xs mt-4 pb-2 text-center relative z-10 font-medium">
+        © 2026 Perpustakaan SMA Muhammadiyah 1 Pekalongan, Lampung Timur • Sistem Informasi Manajemen Perpustakaan
       </p>
     </div>
   );
