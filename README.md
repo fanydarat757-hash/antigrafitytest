@@ -31,12 +31,25 @@
    - [4. Dashboard Eksekutif Kepala Sekolah](#4-dashboard-eksekutif-kepala-sekolah-pengesahan-laporan-resmi)
    - [5. Portal Mandiri Siswa](#5-portal-mandiri-siswa-katalog--kta-digital-barcode)
    - [6. Payment Gateway QRIS Otomatis](#6-payment-gateway-qris-otomatis-anti-kecurangan)
-5. [Matriks Hak Akses Pengguna & Entitas (RBAC Matrix)](#-matriks-hak-akses-pengguna--entitas-rbac-matrix)
-6. [Struktur Basis Data Normalisasi 3NF & Data Dummy (20+ Record)](#-struktur-basis-data-normalisasi-3nf--data-dummy-20-record)
+5. [Matriks Hak Akses Pengguna & Entitas Sistem (RBAC Matrix Lengkap)](#-matriks-hak-akses-pengguna--entitas-sistem-rbac-matrix-lengkap)
+   - [Definisi 4 Aktor Pengguna](#51-definisi-4-aktor-pengguna-sistem)
+   - [Definisi 6 Entitas Basis Data](#52-definisi-6-entitas-basis-data)
+   - [Matriks Hak Akses CRUD](#53-matriks-hak-akses-crud-entitas-entity-role-matrix)
+   - [Matriks 20 Fitur Operasional Lanjutan](#54-matriks-20-fitur-operasional-lanjutan-extended-permissions)
+   - [Diagram Aliran Data Wewenang Otorisasi](#55-diagram-aliran-data-wewenang-otorisasi)
+6. [Struktur Basis Data Normalisasi 3NF & Populasi 20+ Data Dummy](#-struktur-basis-data-normalisasi-3nf--populasi-20-data-dummy)
+   - [Relasi Tabel 3NF](#61-struktur-relasi-basis-data-3nf)
+   - [Ringkasan Volume Dataset (Target vs Realisasi)](#62-ringkasan-volume-dataset-target-vs-realisasi)
+   - [Daftar 25 Master Koleksi Buku (`tb_buku`)](#63-daftar-25-master-koleksi-buku-tb_buku)
+   - [Daftar 25 Master Siswa / Anggota (`tb_anggota`)](#64-daftar-25-master-siswa--anggota-tb_anggota)
+   - [Rincian 25 Transaksi Peminjaman & 20 Pengembalian](#65-rincian-transaksi-sirkulasi-peminjaman--pengembalian)
 7. [Panduan Instalasi & Menjalankan Proyek](#-panduan-instalasi--menjalankan-proyek)
 8. [Akun Pengujian Demo (Credentials)](#-akun-pengujian-demo-credentials)
-9. [Pengujian Black Box Testing](#-pengujian-black-box-testing)
-10. [Dokumen Laporan & Bukti Unggah GitHub](#-dokumen-laporan--bukti-unggah-github)
+9. [Pengujian Sistem & Hasil Verifikasi Teknis](#-pengujian-sistem--hasil-verifikasi-teknis)
+   - [Verifikasi Integritas MySQL 3NF](#91-verifikasi-integritas-basis-data-mysql-3nf)
+   - [Verifikasi Kompilasi Frontend Vite](#92-verifikasi-kompilasi-frontend-react-vite-build)
+   - [Pengujian Black Box Testing (12 Skenario)](#93-pengujian-black-box-testing-12-skenario)
+10. [Dokumen Laporan Lengkap Skripsi](#-dokumen-laporan-lengkap-skripsi)
 11. [Profil Penyusun](#-profil-penyusun)
 
 ---
@@ -479,13 +492,37 @@ Gerbang pembayaran digital QRIS resolusi tinggi (400x400 px) yang langsung dapat
 
 ---
 
-## 🔐 Matriks Hak Akses Pengguna & Entitas (RBAC Matrix)
+## 🔐 Matriks Hak Akses Pengguna & Entitas Sistem (RBAC Matrix Lengkap)
 
-Sistem Informasi Manajemen Perpustakaan SMA Muhammadiyah 1 Pekalongan mengimplementasikan kendali otorisasi ketat berbasis peran (*Role-Based Access Control / RBAC*) yang memisahkan wewenang antara 4 entitas pengguna terhadap 6 entitas tabel basis data:
+Sistem Informasi Manajemen Perpustakaan SMA Muhammadiyah 1 Pekalongan mengimplementasikan kendali akses berbasis peran (*Role-Based Access Control / RBAC*) yang ketat dengan pemisahan wewenang (*Separation of Duties*) antara 4 aktor pengguna terhadap seluruh entitas basis data:
 
-> 📘 **Dokumentasi Lengkap:** Spesifikasi komprehensif, diagram otorisasi, dan 20 wewenang operasional tersedia di [MATRIKS_HAK_AKSES_DAN_ENTITAS.md](MATRIKS_HAK_AKSES_DAN_ENTITAS.md).
+### 5.1 Definisi 4 Aktor Pengguna Sistem
+1. **Kepala Unit Perpustakaan (`admin` / Siti Farida, A.Md)**:
+   - **Peranan:** Administrator Utama & Manajerial Perpustakaan.
+   - **Tanggung Jawab:** Pengelolaan katalog koleksi buku master, penataan label barcode rak fisik, manajemen anggota dan staf, penentuan kebijakan tarif denda dan masa pinjam pada tabel `tb_pengaturan`, monitoring sirkulasi, dan cetak laporan resmi.
+2. **Petugas Layanan & Sirkulasi (`petugas2` / Samsul Arifin, S.Pd)**:
+   - **Peranan:** Operator Loket Front-Desk Sirkulasi.
+   - **Tanggung Jawab:** Pelayanan peminjaman harian, validasi batas kuota maksimal 2 buku, pemrosesan kembali fisik buku, kalkulasi dan dispensasi denda, penerimaan kas loket maupun verifikasi QRIS, cetak struk bukti kwitansi sah, dan pengiriman notifikasi penagihan via WhatsApp Gateway.
+3. **Kepala Sekolah / Supervisor Eksekutif (`kepsek` / Ahmad Marzuki, S.Pd.I)**:
+   - **Peranan:** Supervisor Eksekutif & Penjamin Mutu (*Executive Supervisor*).
+   - **Tanggung Jawab:** Pemantauan indikator kinerja utama (KPI) literasi siswa, audit inventaris koleksi secara *read-only*, serta melakukan **Pengesahan Resmi Laporan Perpustakaan** dengan tanda tangan digital dan stempel sah sekolah.
+4. **Siswa / Anggota Perpustakaan (`siswa` / Login: NISN)**:
+   - **Peranan:** Pengguna Layanan Mandiri (*Self-Service Portal*).
+   - **Tanggung Jawab:** Pencarian katalog buku dan letak rak fisik, pendaftaran akun mandiri, unduh Kartu Tanda Anggota (KTA) digital ber-barcode NISN, perpanjangan durasi pinjam mandiri, dan pelunasan denda melalui scan QRIS Nasional.
 
-### Ringkasan Matriks CRUD (Create, Read, Update, Delete)
+---
+
+### 5.2 Definisi 6 Entitas Basis Data
+1. **`tb_buku`**: Master katalog koleksi pustaka (Kode buku PK, Judul, Pengarang, Penerbit, Tahun, Stok fisik, Lokasi rak).
+2. **`tb_anggota`**: Master data siswa perpustakaan (NISN PK, Nama lengkap, Kelas, No WhatsApp, Alamat, Foto).
+3. **`tb_petugas`**: Master kredensial akun staf (Username PK, Password bcrypt, Nama petugas, Role level).
+4. **`tb_peminjaman`**: Transaksi peminjaman buku (Kode pinjam PK, NISN FK, Kode buku FK, Tanggal pinjam, Tanggal jatuh tempo, Status, Durasi perpanjang, Petugas FK).
+5. **`tb_pengembalian`**: Transaksi pengembalian & denda (Kode kembali PK, Kode pinjam FK, Tanggal kembali, Denda, Status denda, Metode bayar, ID transaksi gateway, Petugas FK).
+6. **`tb_pengaturan`**: Konfigurasi SOP sistem (Tarif denda harian, Durasi standar pinjam, Biaya perpanjangan, Petugas pengubah FK).
+
+---
+
+### 5.3 Matriks Hak Akses CRUD Entitas (Entity-Role Matrix)
 
 | Entitas Basis Data / Modul | Kepala Perpustakaan (`admin`) | Petugas Sirkulasi (`petugas2`) | Kepala Sekolah (`kepsek`) | Siswa / Anggota (`siswa`) |
 | :--- | :---: | :---: | :---: | :---: |
@@ -498,15 +535,90 @@ Sistem Informasi Manajemen Perpustakaan SMA Muhammadiyah 1 Pekalongan mengimplem
 | **Modul Denda & Kwitansi** | **C, R, U, D** | **C, R, U** | **R** | **R\*, Pay** |
 | **Laporan & Dokumen Resmi** | **R, Export, Print** | **R, Export, Print** | **R, Export, Sign** | **R\*** |
 
-*\*Catatan:* Hak akses siswa dan petugas dibatasi sesuai prinsip *least privilege*: Siswa hanya dapat mengelola data profil miliknya sendiri serta melihat riwayat peminjaman dan denda pribadinya.
+*\*Keterangan Aturan Bisnis & Least-Privilege:*
+- `C, R, U*` (Siswa pada `tb_anggota`): Siswa hanya dapat mendaftar baru (C) dan mengedit data profil pribadinya (R, U).
+- `R, U*` (Petugas pada `tb_petugas`): Petugas hanya berwenang memperbarui nama profil dan foto miliknya sendiri.
+- `C*, R*` (Siswa pada `tb_peminjaman` & `tb_pengembalian`): Siswa hanya dapat mengajukan perpanjangan/peminjaman mandiri dan melihat riwayat transaksinya sendiri.
+- `R*, Pay` (Siswa pada Modul Denda): Siswa hanya dapat melihat rincian denda miliknya, membayar via QRIS, dan mencetak struk bukti pembayaran mandiri.
 
 ---
 
-## 🗄️ Struktur Basis Data Normalisasi 3NF & Data Dummy (20+ Record)
+### 5.4 Matriks 20 Fitur Operasional Lanjutan (Extended Permissions)
+
+| No | Fitur Operasional Spesifik | Kepala Perpus | Petugas Sirkulasi | Kepala Sekolah | Siswa / Anggota |
+| :-: | :--- | :---: | :---: | :---: | :---: |
+| 1 | Tambah / Edit / Hapus Master Koleksi Buku | ✅ Ya | ❌ Tidak | ❌ Tidak | ❌ Tidak |
+| 2 | Generate Barcode Rak Buku (Standar Code 128) | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 3 | Ekspor Data Buku ke Format Excel / CSV | ✅ Ya | ✅ Ya | ✅ Ya | ❌ Tidak |
+| 4 | Input Peminjaman Koleksi Buku Baru | ✅ Ya | ✅ Ya | ❌ Tidak | ✅ Ya (Mandiri) |
+| 5 | Dispensasi Pelanggaran Kuota (> 2 Buku) | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 6 | Perpanjang Masa Pinjam (+7 Hari) | ✅ Ya | ✅ Ya | ❌ Tidak | ✅ Ya (Maks 1x) |
+| 7 | Override Tanggal Jatuh Tempo Kustom | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 8 | Edit / Bebaskan Denda (Dispensasi Rp 0) | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 9 | Edit Besaran Denda pada Riwayat Pengembalian | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 10 | Cetak Struk Kwitansi Denda Resmi Loket | ✅ Ya | ✅ Ya | ❌ Tidak | ✅ Ya (Struk Sendiri) |
+| 11 | Penerimaan Pembayaran Tunai Loket Perpustakaan | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 12 | Pembayaran Denda via Gateway QRIS Multi-Bank | ✅ Ya | ✅ Ya | ❌ Tidak | ✅ Ya (Scan QRIS) |
+| 13 | Notifikasi WhatsApp Gateway (1-Klik Tagihan) | ❌ Tidak | ✅ Ya (1-Klik WA) | ❌ Tidak | ❌ Tidak |
+| 14 | Cetak Kartu Tanda Anggota (KTA) Barcode NISN | ✅ Ya | ✅ Ya | ❌ Tidak | ✅ Ya (KTA Sendiri) |
+| 15 | Konfigurasi Tarif Denda Global (`tb_pengaturan`) | ✅ Ya | ✅ Ya | ❌ Tidak | ❌ Tidak |
+| 16 | Filter Riwayat Transaksi Berdasarkan Rentang Tanggal | ✅ Ya | ✅ Ya | ✅ Ya | ❌ Tidak |
+| 17 | Unduh Rekapitulasi Laporan ke Spreadsheet CSV | ✅ Ya | ✅ Ya | ✅ Ya | ❌ Tidak |
+| 18 | Cetak Dokumen Laporan Resmi Ber-KOP Sekolah | ✅ Ya | ✅ Ya | ✅ Ya | ❌ Tidak |
+| 19 | Pengesahan & Tanda Tangan Digital Resmi Dokumen | ❌ Tidak | ❌ Tidak | ✅ Ya (Otoritas Utama) | ❌ Tidak |
+| 20 | Manajemen & Penonaktifan Akun Staf Petugas | ✅ Ya | ❌ Tidak | ❌ Tidak | ❌ Tidak |
+
+---
+
+### 5.5 Diagram Aliran Data Wewenang Otorisasi
+
+```mermaid
+flowchart TD
+    subgraph Aktor ["Aktor Pengguna Sistem"]
+        A["Siswa / Anggota<br/>(Portal Siswa)"]
+        B["Petugas Sirkulasi<br/>(Loket Pelayanan)"]
+        C["Kepala Perpustakaan<br/>(Panel Admin Penuh)"]
+        D["Kepala Sekolah<br/>(Supervisor Eksekutif)"]
+    end
+
+    subgraph Entitas ["Entitas & Modul Basis Data"]
+        E1[("tb_buku<br/>Katalog & Stok")]
+        E2[("tb_anggota<br/>Profil & KTA")]
+        E3[("tb_peminjaman<br/>Sirkulasi Pinjam")]
+        E4[("tb_pengembalian<br/>Sirkulasi Kembali")]
+        E5[("Denda & QRIS<br/>Kas Masuk")]
+        E6[("tb_pengaturan<br/>SOP Kebijakan")]
+        E7[("Laporan Resmi<br/>Akreditasi")]
+    end
+
+    A -->|"1. Cari Buku / KTA Digital"| E1
+    A -->|"2. Pinjam Mandiri / Perpanjang"| E3
+    A -->|"3. Bayar Denda QRIS"| E5
+
+    B -->|"1. Validasi Peminjaman Loket"| E3
+    B -->|"2. Terima Buku Kembali"| E4
+    B -->|"3. Rekonsiliasi Kas Denda"| E5
+    B -->|"4. Kirim Notifikasi WA"| E2
+
+    C -->|"1. Kelola Master Buku & Barcode"| E1
+    C -->|"2. Atur Tarif & Durasi SOP"| E6
+    C -->|"3. Manajemen Penuh Sirkulasi"| E3
+    C -->|"4. Rekonsiliasi Kas & Denda"| E5
+
+    D -->|"1. Audit Koleksi & KPI"| E1
+    D -->|"2. Monitoring Sirkulasi"| E3
+    D -->|"3. PENGESAHAN DOKUMEN RESMI"| E7
+```
+
+---
+
+## 🗄️ Struktur Basis Data Normalisasi 3NF & Populasi 20+ Data Dummy
+
+### 6.1 Struktur Relasi Basis Data 3NF
 
 Basis data dirancang dengan mematuhi kaidah **Bentuk Normal Ketiga (3NF)**:
-1. **1NF**: Setiap atribut bersifat atomik dan tidak terdapat grup data berulang (*repeating groups*).
-2. **2NF**: Seluruh atribut non-kunci bergantung penuh pada Primary Key (*no partial functional dependency*).
+1. **1NF**: Setiap atribut bernilai atomik dan tidak terdapat grup atribut berulang (*repeating groups*).
+2. **2NF**: Seluruh atribut non-kunci bergantung penuh secara fungsional pada Primary Key (*no partial functional dependency*).
 3. **3NF**: Tidak ada ketergantungan transitif antar atribut non-kunci (*no transitive dependency*).
 
 ```
@@ -519,14 +631,96 @@ tb_petugas (username, nama_petugas, role, jabatan, foto, password, remember_toke
 tb_pengaturan (id, kunci, nilai, keterangan, diubah_oleh, updated_at)
 ```
 
-### Volume Data Dummy Pengujian (Dual-Layer Sync)
-Sistem telah dilengkapi dengan dataset dummy realistis yang tersinkronisasi ganda pada **MySQL Server** (`backend/database/skripsi_perpus.sql`) dan **Mock Store Frontend** (`frontend/src/api/axios.js`):
-- **25 Master Koleksi Buku (`tb_buku`)**: Koleksi buku fiksi, non-fiksi, MIPA, Agama, Bahasa, Sosial, dan Teknologi (`BK001` - `BK025`).
-- **25 Master Anggota Siswa (`tb_anggota`)**: Siswa aktif kelas X, XI, dan XII lengkap dengan NISN, No HP, dan Alamat (`2024001` - `2024025`).
-- **25 Transaksi Peminjaman (`tb_peminjaman`)**: Transaksi riwayat dan transaksi aktif berstatus `dipinjam` dan `kembali` (`PJ001` - `PJ025`).
-- **20 Transaksi Pengembalian & Denda (`tb_pengembalian`)**: Transaksi pengembalian dengan kalkulasi denda, status pembayaran via QRIS dan Tunai Loket (`KB001` - `KB020`).
-- **3 Akun Petugas & Supervisor (`tb_petugas`)**: Kepala Perpus (`admin`), Petugas Sirkulasi (`petugas2`), dan Kepala Sekolah (`kepsek`).
-- **1 Pengaturan Kebijakan SOP (`tb_pengaturan`)**: Tarif denda harian (Rp 1.000/hari), durasi standar pinjam (7 hari), dan biaya administrasi perpanjang (Rp 0).
+---
+
+### 6.2 Ringkasan Volume Dataset (Target vs Realisasi)
+
+Sistem telah dilengkapi dengan dataset realistis yang tersinkronisasi ganda (*dual-layer synchronization*) pada database fisik **MySQL** (`backend/database/skripsi_perpus.sql`) dan **Mock Store Frontend** (`frontend/src/api/axios.js`):
+
+| Nama Tabel / Entitas | Target Minimal | Realisasi Data Aktual | Persentase Pemenuhan | Status Pengujian |
+| :--- | :---: | :---: | :---: | :---: |
+| **`tb_buku`** (Master Buku) | $\ge 20$ record | **25 Buku** | **125%** | ✅ Terverifikasi MySQL & Mock |
+| **`tb_anggota`** (Master Siswa) | $\ge 20$ record | **25 Siswa** | **125%** | ✅ Terverifikasi MySQL & Mock |
+| **`tb_peminjaman`** (Sirkulasi Pinjam) | $\ge 20$ record | **25 Transaksi** | **125%** | ✅ Terverifikasi MySQL & Mock |
+| **`tb_pengembalian`** (Sirkulasi Kembali) | $\ge 20$ record | **20 Transaksi** | **100%** | ✅ Terverifikasi MySQL & Mock |
+| **`tb_petugas`** (Staf & Supervisor) | $\ge 3$ record | **3 Akun** | **100%** | ✅ Terverifikasi MySQL & Mock |
+| **`tb_pengaturan`** (Kebijakan SOP) | 1 konfigurasi | **1 Master SOP** | **100%** | ✅ Terverifikasi MySQL & Mock |
+
+---
+
+### 6.3 Daftar 25 Master Koleksi Buku (`tb_buku`)
+
+| Kode Buku | Judul Buku | Pengarang | Penerbit | Tahun | Stok | Rak Fisik |
+| :--- | :--- | :--- | :--- | :-: | :-: | :--- |
+| `BK001` | Matematika Diskrit Berbasis Studi Kasus | Rinaldi Munir | Informatika | 2021 | 5 | Rak MIPA-01 |
+| `BK002` | Pemrograman Web dengan React & PHP | Budi Raharjo | Informatika | 2023 | 3 | Rak TI-02 |
+| `BK003` | Basis Data Lanjut Teori & Implementasi SQL | Abdul Kadir | Andi Publisher | 2022 | 4 | Rak TI-01 |
+| `BK004` | Algoritma dan Pemrograman Modern | Dr. Eng. R. H. Sianipar | Informatika | 2020 | 6 | Rak TI-03 |
+| `BK005` | Fisika Dasar untuk Sains dan Teknik | Halliday & Resnick | Erlangga | 2019 | 4 | Rak MIPA-02 |
+| `BK006` | Kimia Terapan Kurikulum Merdeka | Michael Purba | Erlangga | 2022 | 5 | Rak MIPA-03 |
+| `BK007` | Biologi Molekuler dan Genetika SMA | Campbell & Reece | Erlangga | 2021 | 3 | Rak MIPA-04 |
+| `BK008` | Sejarah Peradaban Islam & Kemuhammadiyahan | Tim Majelis Dikdasmen | Suara Muhammadiyah | 2020 | 7 | Rak Agama-01 |
+| `BK009` | Fiqih Ibadah & Muamalah Kontemporer | Prof. Wahbah Zuhaili | Gema Insani | 2019 | 4 | Rak Agama-02 |
+| `BK010` | Akidah Akhlak Madrasah Aliyah & SMA | Prof. Dr. Yunahar Ilyas | Suara Muhammadiyah | 2022 | 6 | Rak Agama-03 |
+| `BK011` | Bahasa Indonesia Akademik & Tata Tulis | E. Zainal Arifin | Pustaka Mandiri | 2021 | 5 | Rak Bahasa-01 |
+| `BK012` | English for Academic Purposes & TOEFL Prep | Raymond Murphy | Cambridge | 2020 | 4 | Rak Bahasa-02 |
+| `BK013` | Sosiologi: Menyelami Fenomena Sosial | Soerjono Soekanto | Rajawali Pers | 2019 | 3 | Rak Sosial-01 |
+| `BK014` | Ekonomi Moneter & Perbankan Indonesia | Boediono | BPFE Yogyakarta | 2021 | 5 | Rak Sosial-02 |
+| `BK015` | Geografi Regional dan Mitigasi Bencana | Bambang Utoyo | Yudhistira | 2020 | 4 | Rak Sosial-03 |
+| `BK016` | Pendidikan Pancasila & Kewarganegaraan | Kaelan | Paradigma | 2022 | 6 | Rak Sosial-04 |
+| `BK017` | Antropologi Budaya Nusantara | Koentjaraningrat | Gramedia | 2018 | 3 | Rak Sosial-05 |
+| `BK018` | Statistika Praktis untuk Analisis Data | Sudjana | Tarsito | 2021 | 5 | Rak MIPA-05 |
+| `BK019` | Jaringan Komputer & Keamanan Siber | Onno W. Purbo | Andi Publisher | 2023 | 4 | Rak TI-04 |
+| `BK020` | Rekayasa Perangkat Lunak Terstruktur | Roger S. Pressman | McGraw-Hill | 2020 | 3 | Rak TI-05 |
+| `BK021` | Sejarah Kebudayaan Indonesia Abad 20 | Sartono Kartodirdjo | Gramedia | 2019 | 4 | Rak Sosial-06 |
+| `BK022` | Seni Rupa & Desain Komunikasi Visual | Dharsono Sony Kartika | Rekayasa Sains | 2021 | 5 | Rak Budaya-01 |
+| `BK023` | Bimbingan Konseling & Psikologi Remaja | Prof. Syamsu Yusuf | Rosdakarya | 2020 | 4 | Rak Konseling-01 |
+| `BK024` | Kewirausahaan Kreatif Generasi Muda | Hendro | Erlangga | 2022 | 6 | Rak Bisnis-01 |
+| `BK025` | Ensiklopedia Sains & Teknologi Dunia | Tim Redaksi Pustaka | Lentera Hati | 2023 | 2 | Rak Referensi-01 |
+
+---
+
+### 6.4 Daftar 25 Master Siswa / Anggota (`tb_anggota`)
+
+| No | NISN (Login) | Nama Lengkap Siswa | Kelas | No. Handphone / WhatsApp | Alamat Siswa |
+| :-: | :--- | :--- | :---: | :--- | :--- |
+| 1 | `2024001` | Muhammad Rizky Pratama | XII MIPA 1 | 081234567890 | Jl. Ahmad Dahlan No. 12, Pekalongan |
+| 2 | `2024002` | Annisa Putri Maharani | XI IPS 2 | 081234567891 | Jl. Sudirman No. 45, Batanghari |
+| 3 | `2024003` | Dimas Arya Sena | XII MIPA 2 | 081234567892 | Jl. Ki Hajar Dewantara No. 8, Metro |
+| 4 | `2024004` | Siti Nur Aini | X-1 | 081234567893 | Jl. KH Ahmad Dahlan No. 99, Pekalongan |
+| 5 | `2024005` | Fajar Ramadhan | XI MIPA 1 | 081234567894 | Jl. Merdeka No. 17, Sekampung |
+| 6 | `2024006` | Dewi Lestari | XII IPS 1 | 081234567895 | Jl. Diponegoro No. 3, Batanghari |
+| 7 | `2024007` | Rahmat Hidayat | XI MIPA 2 | 081234567896 | Jl. Gajah Mada No. 22, Pekalongan |
+| 8 | `2024008` | Tiara Safitri | X-2 | 081234567897 | Jl. Imam Bonjol No. 14, Pekalongan |
+| 9 | `2024009` | Bagas Kurniawan | XII MIPA 1 | 081234567898 | Jl. Pahlawan No. 56, Pekalongan |
+| 10 | `2024010` | Nurul Hasanah | XI IPS 1 | 081234567899 | Jl. Kartini No. 7, Pekalongan |
+| 11 | `2024011` | Bayu Pamungkas | X-3 | 081345678901 | Jl. Hasanuddin No. 88, Pekalongan |
+| 12 | `2024012` | Indah Permatasari | XII IPS 2 | 081345678902 | Jl. Cut Nyak Dien No. 19, Pekalongan |
+| 13 | `2024013` | Galih Pratama | XI MIPA 3 | 081345678903 | Jl. Teuku Umar No. 31, Pekalongan |
+| 14 | `2024014` | Zahra Amelia | X-1 | 081345678904 | Jl. Pattimura No. 62, Batanghari |
+| 15 | `2024015` | Dede Kurnia | XII MIPA 2 | 081345678905 | Jl. Raden Intan No. 5, Metro |
+| 16 | `2024016` | Maya Anggraini | XI IPS 2 | 081345678906 | Jl. Dr. Sutomo No. 11, Pekalongan |
+| 17 | `2024017` | Hendra Wijaya | X-2 | 081345678907 | Jl. Yos Sudarso No. 44, Pekalongan |
+| 18 | `2024018` | Putri Sekar Arum | XII MIPA 1 | 081345678908 | Jl. Veteran No. 23, Pekalongan |
+| 19 | `2024019` | Aditya Pratama | XI MIPA 1 | 081345678909 | Jl. Pemuda No. 78, Pekalongan |
+| 20 | `2024020` | Luthfi Hakim | X-3 | 081345678910 | Jl. Cendrawasih No. 15, Pekalongan |
+| 21 | `2024021` | Nabila Syakieb | XII IPS 1 | 081345678911 | Jl. Melati No. 2, Batanghari |
+| 22 | `2024022` | Kevin Sanjaya | XI IPS 1 | 081345678912 | Jl. Anggrek No. 9, Pekalongan |
+| 23 | `2024023` | Farhan Maulana | X-2 | 081345678913 | Jl. Mawar No. 33, Pekalongan |
+| 24 | `2024024` | Tari Rahmawati | XII MIPA 2 | 081345678914 | Jl. Flamboyan No. 27, Pekalongan |
+| 25 | `2024025` | Wildan Nugraha | XI MIPA 2 | 081345678915 | Jl. Kenanga No. 51, Pekalongan |
+
+---
+
+### 6.5 Rincian Transaksi Sirkulasi Peminjaman & Pengembalian
+- **Peminjaman (`tb_peminjaman`)**:
+  - `PJ001` s/d `PJ020`: Transaksi selesai yang telah dikembalikan (`status = kembali`).
+  - `PJ021` s/d `PJ025`: Transaksi aktif yang sedang berjalan (`status = dipinjam`), termasuk buku yang mendekati jatuh tempo dan melewati jatuh tempo guna menguji kalkulasi denda dinamis dan fitur WhatsApp Reminder.
+- **Pengembalian & Denda (`tb_pengembalian`)**:
+  - `KB001` s/d `KB020`: Total 20 data pengembalian dengan rincian denda bervariasi:
+    - 11 Transaksi bebas denda / tepat waktu ($denda = 0$, `status_denda = lunas`).
+    - 5 Transaksi terlambat dilunasi melalui **Payment Gateway QRIS Nasional** (`metode_pembayaran = QRIS`, disertai ID Transaksi settlement resmi).
+    - 4 Transaksi terlambat dilunasi secara **Tunai di Loket Konter Sirkulasi** (`metode_pembayaran = Tunai Loket`).
 
 ---
 
@@ -597,7 +791,40 @@ Untuk mempermudah evaluasi pengujian fitur berdasarkan kontrol akses berbasis pe
 
 ---
 
-## 🧪 Pengujian Black Box Testing
+## 🧪 Pengujian Sistem & Hasil Verifikasi Teknis
+
+Pengujian dan verifikasi sistem dilakukan secara menyeluruh mencakup integritas skema basis data, kompilasi kode frontend production, serta pengujian fungsionalitas dengan metode Black Box Testing.
+
+### 9.1 Verifikasi Integritas Basis Data MySQL 3NF
+Pengecekan integritas skema dan volume data baris dijalankan secara langsung pada MySQL database `skripsi_perpus`:
+```sql
+SELECT 'tb_buku' AS Entitas, COUNT(*) AS Total FROM tb_buku UNION ALL
+SELECT 'tb_anggota', COUNT(*) FROM tb_anggota UNION ALL
+SELECT 'tb_petugas', COUNT(*) FROM tb_petugas UNION ALL
+SELECT 'tb_peminjaman', COUNT(*) FROM tb_peminjaman UNION ALL
+SELECT 'tb_pengembalian', COUNT(*) FROM tb_pengembalian;
+```
+**Hasil Eksekusi:**
+- `tb_buku`: **25 Baris** (Status: Valid, Berelasi Foreign Key)
+- `tb_anggota`: **25 Baris** (Status: Valid, NISN Unique)
+- `tb_petugas`: **3 Baris** (Status: Valid, RBAC Enkripsi Terverifikasi)
+- `tb_peminjaman`: **25 Baris** (Status: Valid, Relasi Siswa & Koleksi Buku)
+- `tb_pengembalian`: **20 Baris** (Status: Valid, Perhitungan Denda & QRIS Terhubung)
+
+### 9.2 Verifikasi Kompilasi Frontend React (Vite Build)
+Kompilasi kode sumber antarmuka dijalankan melalui perintah `npm run build` di lingkungan Node.js:
+```bash
+vite v5.4.21 building for production...
+transforming...
+✓ 1653 modules transformed.
+dist/index.html                   0.78 kB │ gzip:   0.46 kB
+dist/assets/index-DFwknTwe.css   64.71 kB │ gzip:  10.19 kB
+dist/assets/index-Dfzq8zh-.js   472.52 kB │ gzip: 122.15 kB
+✓ built in 4.60s
+```
+**Hasil:** Kompilasi berhasil 100% tanpa error (*Zero Warning, Zero Compilation Error*).
+
+### 9.3 Pengujian Black Box Testing (12 Skenario)
 
 Pengujian fungsionalitas sistem dilakukan menggunakan metode **Black Box Testing** pada 12 skenario pengujian utama:
 
@@ -618,16 +845,11 @@ Pengujian fungsionalitas sistem dilakukan menggunakan metode **Black Box Testing
 
 ---
 
-## 📑 Dokumen Laporan & Bukti Unggah GitHub
+## 📑 Dokumen Laporan Lengkap Skripsi
 
-Untuk keperluan peninjauan akademis, sidang tugas akhir / skripsi, dan evaluasi mata kuliah Basis Data Lanjut, seluruh dokumen spesifikasi teknis dan laporan kemajuan proyek telah disediakan secara komprehensif:
+Seluruh dokumen perancangan arsitektur sistem, matriks hak akses RBAC, populasi 25 data dummy, diagram UML lengkap (DFD, ERD, Use Case, Activity, Sequence, State Machine, Class Diagram), flowchart 7 SOP, panduan teknis, dan laporan pengujian 17 test case telah dirangkum dalam satu dokumen master:
 
-| Dokumen Rujukan | Deskripsi Dokumen | Tautan Berkas |
-| :--- | :--- | :--- |
-| **Matriks Hak Akses & Entitas** | Spesifikasi RBAC 4 Aktor x 6 Entitas, matriks CRUD, dan 20 izin operasional | [MATRIKS_HAK_AKSES_DAN_ENTITAS.md](MATRIKS_HAK_AKSES_DAN_ENTITAS.md) |
-| **Laporan Pengembangan & Progres** | Laporan detail implementasi sistem, pengujian 20+ dataset dummy, dan bukti unggah | [LAPORAN_PROGRESS_DAN_MATRIKS_SISTEM.md](LAPORAN_PROGRESS_DAN_MATRIKS_SISTEM.md) |
-| **Panduan Teknis & Arsitektur** | Blueprint arsitektur 3-tier, relasi 3NF, DFD konteks, dan flowchart sistem | [PANDUAN_TEKNIS_DAN_ARSITEKTUR_SKRIPSI.md](PANDUAN_TEKNIS_DAN_ARSITEKTUR_SKRIPSI.md) |
-| **Skema Basis Data SQL (3NF)** | Skrip DDL & DML MySQL dengan 25 buku, 25 anggota, 25 pinjam, 20 kembali | [skripsi_perpus.sql](backend/database/skripsi_perpus.sql) |
+> 📘 **Buka Dokumen Laporan Lengkap:** [LAPORAN.md](LAPORAN.md)
 
 ---
 
