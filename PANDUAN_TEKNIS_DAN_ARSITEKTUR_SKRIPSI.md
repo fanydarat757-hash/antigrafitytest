@@ -18,6 +18,7 @@
   2. **Petugas Sirkulasi & Pelayanan** (`petugas2`): Samsul Arifin, S.Pd
   3. **Kepala Sekolah / Pembimbing Mutu** (`kepsek`): Ahmad Marzuki, S.Pd.I
   4. **Siswa / Anggota Perpustakaan** (`nisn`): Login mandiri & registrasi siswa
+  > 📑 *Rujukan Lengkap Otorisasi & Matriks CRUD Pengguna vs Entitas:* [MATRIKS_HAK_AKSES_DAN_ENTITAS.md](MATRIKS_HAK_AKSES_DAN_ENTITAS.md) | [LAPORAN_PROGRESS_DAN_MATRIKS_SISTEM.md](LAPORAN_PROGRESS_DAN_MATRIKS_SISTEM.md)
 
 ---
 

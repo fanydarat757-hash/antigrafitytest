@@ -72,11 +72,14 @@ export default function LoginPage({ onLogin }) {
     },
   ];
 
-  // 2. Akun Demo Mahasiswa / Siswa
+  // 2. Akun Demo Mahasiswa / Siswa (Terhubung ke 25 Data Anggota)
   const [studentList, setStudentList] = useState([
     { username: '2024001', pass: 'siswa123', nama: 'Ahmad Fauzi', kelas: 'Kelas XI IPA 1' },
     { username: '2024002', pass: 'siswa123', nama: 'Siti Aisyah', kelas: 'Kelas XII IPA 2' },
     { username: '2024003', pass: 'siswa123', nama: 'Rizky Ramadhan', kelas: 'Kelas X IPS 1' },
+    { username: '2024004', pass: 'siswa123', nama: 'Nurul Hidayah', kelas: 'Kelas XI IPS 2' },
+    { username: '2024005', pass: 'siswa123', nama: 'Budi Santoso', kelas: 'Kelas X IPA 1' },
+    { username: '2024006', pass: 'siswa123', nama: 'Dewi Sartika', kelas: 'Kelas XI IPA 2' },
   ]);
 
   const handleRoleSwitch = (newRole) => {

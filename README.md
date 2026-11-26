@@ -31,11 +31,13 @@
    - [4. Dashboard Eksekutif Kepala Sekolah](#4-dashboard-eksekutif-kepala-sekolah-pengesahan-laporan-resmi)
    - [5. Portal Mandiri Siswa](#5-portal-mandiri-siswa-katalog--kta-digital-barcode)
    - [6. Payment Gateway QRIS Otomatis](#6-payment-gateway-qris-otomatis-anti-kecurangan)
-5. [Struktur Basis Data Normalisasi 3NF](#-struktur-basis-data-normalisasi-3nf)
-6. [Panduan Instalasi & Menjalankan Proyek](#-panduan-instalasi--menjalankan-proyek)
-7. [Akun Pengujian Demo (Credentials)](#-akun-pengujian-demo-credentials)
-8. [Pengujian Black Box Testing](#-pengujian-black-box-testing)
-9. [Profil Penyusun](#-profil-penyusun)
+5. [Matriks Hak Akses Pengguna & Entitas (RBAC Matrix)](#-matriks-hak-akses-pengguna--entitas-rbac-matrix)
+6. [Struktur Basis Data Normalisasi 3NF & Data Dummy (20+ Record)](#-struktur-basis-data-normalisasi-3nf--data-dummy-20-record)
+7. [Panduan Instalasi & Menjalankan Proyek](#-panduan-instalasi--menjalankan-proyek)
+8. [Akun Pengujian Demo (Credentials)](#-akun-pengujian-demo-credentials)
+9. [Pengujian Black Box Testing](#-pengujian-black-box-testing)
+10. [Dokumen Laporan & Bukti Unggah GitHub](#-dokumen-laporan--bukti-unggah-github)
+11. [Profil Penyusun](#-profil-penyusun)
 
 ---
 
@@ -477,7 +479,30 @@ Gerbang pembayaran digital QRIS resolusi tinggi (400x400 px) yang langsung dapat
 
 ---
 
-## 🗄️ Struktur Basis Data Normalisasi 3NF
+## 🔐 Matriks Hak Akses Pengguna & Entitas (RBAC Matrix)
+
+Sistem Informasi Manajemen Perpustakaan SMA Muhammadiyah 1 Pekalongan mengimplementasikan kendali otorisasi ketat berbasis peran (*Role-Based Access Control / RBAC*) yang memisahkan wewenang antara 4 entitas pengguna terhadap 6 entitas tabel basis data:
+
+> 📘 **Dokumentasi Lengkap:** Spesifikasi komprehensif, diagram otorisasi, dan 20 wewenang operasional tersedia di [MATRIKS_HAK_AKSES_DAN_ENTITAS.md](MATRIKS_HAK_AKSES_DAN_ENTITAS.md).
+
+### Ringkasan Matriks CRUD (Create, Read, Update, Delete)
+
+| Entitas Basis Data / Modul | Kepala Perpustakaan (`admin`) | Petugas Sirkulasi (`petugas2`) | Kepala Sekolah (`kepsek`) | Siswa / Anggota (`siswa`) |
+| :--- | :---: | :---: | :---: | :---: |
+| **`tb_buku` (Master Koleksi Buku)** | **C, R, U, D** | **R** | **R** | **R** |
+| **`tb_anggota` (Data Siswa/Anggota)** | **C, R, U, D** | **R, U** | **R** | **C, R, U\*** |
+| **`tb_petugas` (Akun Staf & RBAC)** | **C, R, U, D** | **R, U\*** | **R** | **-** |
+| **`tb_peminjaman` (Transaksi Pinjam)** | **C, R, U, D** | **C, R, U** | **R** | **C\*, R\*** |
+| **`tb_pengembalian` (Pengembalian)** | **C, R, U, D** | **C, R, U** | **R** | **R\*** |
+| **`tb_pengaturan` (Konfigurasi SOP)** | **C, R, U, D** | **R, U** | **R** | **R** |
+| **Modul Denda & Kwitansi** | **C, R, U, D** | **C, R, U** | **R** | **R\*, Pay** |
+| **Laporan & Dokumen Resmi** | **R, Export, Print** | **R, Export, Print** | **R, Export, Sign** | **R\*** |
+
+*\*Catatan:* Hak akses siswa dan petugas dibatasi sesuai prinsip *least privilege*: Siswa hanya dapat mengelola data profil miliknya sendiri serta melihat riwayat peminjaman dan denda pribadinya.
+
+---
+
+## 🗄️ Struktur Basis Data Normalisasi 3NF & Data Dummy (20+ Record)
 
 Basis data dirancang dengan mematuhi kaidah **Bentuk Normal Ketiga (3NF)**:
 1. **1NF**: Setiap atribut bersifat atomik dan tidak terdapat grup data berulang (*repeating groups*).
@@ -493,6 +518,15 @@ tb_petugas (username, nama_petugas, role, jabatan, foto, password, remember_toke
 
 tb_pengaturan (id, kunci, nilai, keterangan, diubah_oleh, updated_at)
 ```
+
+### Volume Data Dummy Pengujian (Dual-Layer Sync)
+Sistem telah dilengkapi dengan dataset dummy realistis yang tersinkronisasi ganda pada **MySQL Server** (`backend/database/skripsi_perpus.sql`) dan **Mock Store Frontend** (`frontend/src/api/axios.js`):
+- **25 Master Koleksi Buku (`tb_buku`)**: Koleksi buku fiksi, non-fiksi, MIPA, Agama, Bahasa, Sosial, dan Teknologi (`BK001` - `BK025`).
+- **25 Master Anggota Siswa (`tb_anggota`)**: Siswa aktif kelas X, XI, dan XII lengkap dengan NISN, No HP, dan Alamat (`2024001` - `2024025`).
+- **25 Transaksi Peminjaman (`tb_peminjaman`)**: Transaksi riwayat dan transaksi aktif berstatus `dipinjam` dan `kembali` (`PJ001` - `PJ025`).
+- **20 Transaksi Pengembalian & Denda (`tb_pengembalian`)**: Transaksi pengembalian dengan kalkulasi denda, status pembayaran via QRIS dan Tunai Loket (`KB001` - `KB020`).
+- **3 Akun Petugas & Supervisor (`tb_petugas`)**: Kepala Perpus (`admin`), Petugas Sirkulasi (`petugas2`), dan Kepala Sekolah (`kepsek`).
+- **1 Pengaturan Kebijakan SOP (`tb_pengaturan`)**: Tarif denda harian (Rp 1.000/hari), durasi standar pinjam (7 hari), dan biaya administrasi perpanjang (Rp 0).
 
 ---
 
@@ -581,6 +615,19 @@ Pengujian fungsionalitas sistem dilakukan menggunakan metode **Black Box Testing
 | 10 | Cetak Kartu Anggota (KTA) Digital | Klik cetak KTA pada portal siswa | Tampil kartu anggota standar nasional lengkap barcode NISN & foto | **Valid (100%)** |
 | 11 | Pengesahan Laporan Kepala Sekolah | Cetak laporan pada akun Kepala Sekolah | Lembar laporan memuat kop resmi dan tanda tangan digital sah | **Valid (100%)** |
 | 12 | Ekspor Rekapitulasi Excel CSV | Klik tombol *Export ke Excel/CSV* | File `.csv` terunduh sempurna dan dapat dibuka rapi di Excel | **Valid (100%)** |
+
+---
+
+## 📑 Dokumen Laporan & Bukti Unggah GitHub
+
+Untuk keperluan peninjauan akademis, sidang tugas akhir / skripsi, dan evaluasi mata kuliah Basis Data Lanjut, seluruh dokumen spesifikasi teknis dan laporan kemajuan proyek telah disediakan secara komprehensif:
+
+| Dokumen Rujukan | Deskripsi Dokumen | Tautan Berkas |
+| :--- | :--- | :--- |
+| **Matriks Hak Akses & Entitas** | Spesifikasi RBAC 4 Aktor x 6 Entitas, matriks CRUD, dan 20 izin operasional | [MATRIKS_HAK_AKSES_DAN_ENTITAS.md](MATRIKS_HAK_AKSES_DAN_ENTITAS.md) |
+| **Laporan Pengembangan & Progres** | Laporan detail implementasi sistem, pengujian 20+ dataset dummy, dan bukti unggah | [LAPORAN_PROGRESS_DAN_MATRIKS_SISTEM.md](LAPORAN_PROGRESS_DAN_MATRIKS_SISTEM.md) |
+| **Panduan Teknis & Arsitektur** | Blueprint arsitektur 3-tier, relasi 3NF, DFD konteks, dan flowchart sistem | [PANDUAN_TEKNIS_DAN_ARSITEKTUR_SKRIPSI.md](PANDUAN_TEKNIS_DAN_ARSITEKTUR_SKRIPSI.md) |
+| **Skema Basis Data SQL (3NF)** | Skrip DDL & DML MySQL dengan 25 buku, 25 anggota, 25 pinjam, 20 kembali | [skripsi_perpus.sql](backend/database/skripsi_perpus.sql) |
 
 ---
 
